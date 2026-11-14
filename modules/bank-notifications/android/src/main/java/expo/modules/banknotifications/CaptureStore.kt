@@ -16,7 +16,7 @@ internal object CaptureStore {
 
   private fun database(context: Context): SQLiteDatabase {
     val db = SQLiteDatabase.openOrCreateDatabase(File(context.noBackupFilesDir, "bank-capture.db"), null)
-    db.execSQL("PRAGMA secure_delete=ON")
+    db.rawQuery("PRAGMA secure_delete=ON", null).use { it.moveToFirst() }
     db.execSQL("CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY CHECK(id=1), consent INTEGER NOT NULL)")
     db.execSQL("CREATE TABLE IF NOT EXISTS packages (name TEXT PRIMARY KEY)")
     db.execSQL("CREATE TABLE IF NOT EXISTS alerts (id TEXT PRIMARY KEY, text TEXT NOT NULL, package_name TEXT NOT NULL, received_at INTEGER NOT NULL)")
