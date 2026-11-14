@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextProps, type ViewProps } from 'react-native';
 import { useTokens } from './theme';
+import { userError } from './userError';
 import { useFinance } from '@/features/FinanceProvider';
 
 export function Copy({ style, tone = 'text', ...props }: TextProps & { tone?: 'text' | 'muted' | 'positive' | 'negative' | 'primary' | 'warning' }) {
-  const t = useTokens(); return <Text {...props} style={[styles.copy, { color: t[tone] }, style]} />;
+  const t = useTokens(); return <Text {...props} style={[styles.copy, { color: tone === 'primary' ? t.link : t[tone] }, style]} />;
 }
 export function Heading({ children, small = false }: { children: ReactNode; small?: boolean }) {
   return <Copy accessibilityRole="header" style={small ? styles.section : styles.heading}>{children}</Copy>;
@@ -18,7 +19,7 @@ export function Action({ label, onPress, variant = 'primary', disabled = false, 
 }) {
   const t = useTokens();
   const bg = variant === 'primary' ? t.primary : variant === 'danger' ? t.negativeSoft : t.surfaceAlt;
-  const color = variant === 'primary' ? t.onPrimary : variant === 'danger' ? t.negative : t.text;
+  const color = variant === 'primary' ? t.onPrimary : variant === 'danger' ? t.onNegativeSoft : t.text;
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [styles.action, compact && styles.compact, { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.72 : 1 }]}>
     <Text style={[styles.actionText, { color }]}>{label}</Text>
@@ -35,20 +36,20 @@ export function Field({ label, help, style, ...props }: TextInputProps & { label
 export function Choice({ label, selected, onPress, disabled = false }: { label: string; selected: boolean; onPress: () => void; disabled?: boolean }) {
   const t = useTokens(); return <Pressable accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [styles.choice, { borderColor: selected ? t.primary : t.border, backgroundColor: selected ? t.primarySoft : t.surface, opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
-    <Copy tone={selected ? 'primary' : 'muted'} style={styles.label}>{label}</Copy>
+    <Copy style={[styles.label, { color: selected ? t.onPrimarySoft : t.muted }]}>{label}</Copy>
   </Pressable>;
 }
 export function Banner({ children, danger = false }: { children: ReactNode; danger?: boolean }) {
   const t = useTokens(); return <View accessibilityRole={danger ? 'alert' : undefined} style={[styles.banner, { backgroundColor: danger ? t.negativeSoft : t.primarySoft }]}>
-    <Copy tone={danger ? 'negative' : 'primary'}>{children}</Copy>
+    <Copy style={{ color: danger ? t.onNegativeSoft : t.onPrimarySoft }}>{children}</Copy>
   </View>;
 }
 export function Feedback() {
   const { error, notice, dismissError, loading, processing } = useFinance();
   return <>
     {loading && <Row><ActivityIndicator /><Copy tone="muted">Đang mở sổ…</Copy></Row>}
-    {processing && <Copy tone="primary">Đang gửi các mục đã chọn qua máy chủ Express của nhóm phát triển đến OpenAI. Không thể rút lại yêu cầu đã gửi; kết quả vẫn cần bạn duyệt.</Copy>}
-    {(error || notice) && <View style={styles.feedback}><Banner danger={!!error}>{error || notice}</Banner><Action compact variant="secondary" label="Đóng thông báo" onPress={dismissError} /></View>}
+    {processing && <Copy tone="primary">Đang gửi các mục đã chọn qua máy chủ Express của nhóm phát triển đến OpenAI. Kết quả vẫn cần bạn duyệt trước khi ghi sổ.</Copy>}
+    {(error || notice) && <View style={styles.feedback}><Banner danger={!!error}>{error ? userError(error) : notice}</Banner><Action compact variant="secondary" label="Đóng thông báo" onPress={dismissError} /></View>}
   </>;
 }
 export function Screen({ title, eyebrow, children, scroll = true }: { title: string; eyebrow?: string; children: ReactNode; scroll?: boolean }) {

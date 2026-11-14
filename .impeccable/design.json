@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-14T07:17:09.135585+00:00",
+  "title": "Design System: Kesefly",
+  "extensions": {
+    "colorMeta": {
+      "light-background": {
+        "role": "neutral",
+        "displayName": "light-background",
+        "canonical": "#F3F6FA"
+      },
+      "light-surface": {
+        "role": "neutral",
+        "displayName": "light-surface",
+        "canonical": "#FFFFFF"
+      },
+      "light-surfaceAlt": {
+        "role": "neutral",
+        "displayName": "light-surfaceAlt",
+        "canonical": "#EAF0F7"
+      },
+      "light-text": {
+        "role": "neutral",
+        "displayName": "light-text",
+        "canonical": "#142742"
+      },
+      "light-muted": {
+        "role": "neutral",
+        "displayName": "light-muted",
+        "canonical": "#51637B"
+      },
+      "light-border": {
+        "role": "neutral",
+        "displayName": "light-border",
+        "canonical": "#CDD8E5"
+      },
+      "light-primary": {
+        "role": "primary",
+        "displayName": "light-primary",
+        "canonical": "#205BCC"
+      },
+      "light-onPrimary": {
+        "role": "semantic",
+        "displayName": "light-onPrimary",
+        "canonical": "#FFFFFF"
+      },
+      "light-primarySoft": {
+        "role": "semantic",
+        "displayName": "light-primarySoft",
+        "canonical": "#E8F0FF"
+      },
+      "light-positive": {
+        "role": "semantic",
+        "displayName": "light-positive",
+        "canonical": "#087853"
+      },
+      "light-positiveSoft": {
+        "role": "semantic",
+        "displayName": "light-positiveSoft",
+        "canonical": "#E1F4EB"
+      },
+      "light-negative": {
+        "role": "semantic",
+        "displayName": "light-negative",
+        "canonical": "#B4313E"
+      },
+      "light-negativeSoft": {
+        "role": "semantic",
+        "displayName": "light-negativeSoft",
+        "canonical": "#FCECEF"
+      },
+      "light-warning": {
+        "role": "semantic",
+        "displayName": "light-warning",
+        "canonical": "#825107"
+      },
+      "light-warningSoft": {
+        "role": "semantic",
+        "displayName": "light-warningSoft",
+        "canonical": "#FFF3DA"
+      },
+      "light-ledger": {
+        "role": "semantic",
+        "displayName": "light-ledger",
+        "canonical": "#112A4C"
+      },
+      "light-onLedger": {
+        "role": "semantic",
+        "displayName": "light-onLedger",
+        "canonical": "#FFFFFF"
+      },
+      "light-ledgerMuted": {
+        "role": "semantic",
+        "displayName": "light-ledgerMuted",
+        "canonical": "#B8CBE3"
+      },
+      "light-scrim": {
+        "role": "semantic",
+        "displayName": "light-scrim",
+        "canonical": "#07172EBB"
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "dark-background",
+        "canonical": "#0B1626"
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "dark-surface",
+        "canonical": "#14253B"
+      },
+      "dark-surfaceAlt": {
+        "role": "neutral",
+        "displayName": "dark-surfaceAlt",
+        "canonical": "#1B304A"
+      },
+      "dark-text": {
+        "role": "neutral",
+        "displayName": "dark-text",
+        "canonical": "#EFF5FD"
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "dark-muted",
+        "canonical": "#ADC0D8"
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "dark-border",
+        "canonical": "#354D69"
+      },
+      "dark-primary": {
+        "role": "primary",
+        "displayName": "dark-primary",
+        "canonical": "#8CB5FF"
+      },
+      "dark-onPrimary": {
+        "role": "semantic",
+        "displayName": "dark-onPrimary",
+        "canonical": "#10284D"
+      },
+      "dark-primarySoft": {
+        "role": "semantic",
+        "displayName": "dark-primarySoft",
+        "canonical": "#203D63"
+      },
+      "dark-positive": {
+        "role": "semantic",
+        "displayName": "dark-positive",
+        "canonical": "#75D9AF"
+      },
+      "dark-positiveSoft": {
+        "role": "semantic",
+        "displayName": "dark-positiveSoft",
+        "canonical": "#163E34"
+      },
+      "dark-negative": {
+        "role": "semantic",
+        "displayName": "dark-negative",
+        "canonical": "#FF9BA8"
+      },
+      "dark-negativeSoft": {
+        "role": "semantic",
+        "displayName": "dark-negativeSoft",
+        "canonical": "#482B39"
+      },
+      "dark-warning": {
+        "role": "semantic",
+        "displayName": "dark-warning",
+        "canonical": "#F6CB7C"
+      },
+      "dark-warningSoft": {
+        "role": "semantic",
+        "displayName": "dark-warningSoft",
+        "canonical": "#453A23"
+      },
+      "dark-ledger": {
+        "role": "semantic",
+        "displayName": "dark-ledger",
+        "canonical": "#17355C"
+      },
+      "dark-onLedger": {
+        "role": "semantic",
+        "displayName": "dark-onLedger",
+        "canonical": "#FFFFFF"
+      },
+      "dark-ledgerMuted": {
+        "role": "semantic",
+        "displayName": "dark-ledgerMuted",
+        "canonical": "#BED2EB"
+      },
+      "dark-scrim": {
+        "role": "semantic",
+        "displayName": "dark-scrim",
+        "canonical": "#030A14CC"
+      }
+    },
+    "typographyMeta": {
+      "heading": {
+        "displayName": "Existing heading",
+        "purpose": "Code baseline, not target MD3 headline."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Action / primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Current Action, light theme; browser preview only.",
+      "html": "<button class=\"ds-button-primary\">Lưu giao dịch</button>",
+      "css": ".ds-button-primary { background:#205BCC; color:#FFFFFF; min-height:48px; padding:13px 18px; border:0; border-radius:12px; font:700 15px system-ui; cursor:pointer; } .ds-button-primary:hover { opacity:.9; } .ds-button-primary:active { opacity:.72; } .ds-button-primary:disabled { opacity:.45; cursor:default; } .ds-button-primary:focus-visible { outline:2px solid #205BCC; outline-offset:3px; }"
+    },
+    {
+      "name": "Action / secondary",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Current Action, light theme; browser preview only.",
+      "html": "<button class=\"ds-button-secondary\">Hủy</button>",
+      "css": ".ds-button-secondary { background:#EAF0F7; color:#142742; min-height:48px; padding:13px 18px; border:0; border-radius:12px; font:700 15px system-ui; cursor:pointer; } .ds-button-secondary:hover { opacity:.9; } .ds-button-secondary:active { opacity:.72; } .ds-button-secondary:disabled { opacity:.45; cursor:default; } .ds-button-secondary:focus-visible { outline:2px solid #205BCC; outline-offset:3px; }"
+    },
+    {
+      "name": "Action / danger",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Current Action, light theme; browser preview only.",
+      "html": "<button class=\"ds-button-danger\">Xóa giao dịch</button>",
+      "css": ".ds-button-danger { background:#FCECEF; color:#B4313E; min-height:48px; padding:13px 18px; border:0; border-radius:12px; font:700 15px system-ui; cursor:pointer; } .ds-button-danger:hover { opacity:.9; } .ds-button-danger:active { opacity:.72; } .ds-button-danger:disabled { opacity:.45; cursor:default; } .ds-button-danger:focus-visible { outline:2px solid #205BCC; outline-offset:3px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Current Field with label and help; browser preview only.",
+      "html": "<label class=\"ds-field\">Số tiền<input inputmode=\"numeric\" placeholder=\"Nhập số tiền\" aria-describedby=\"ds-help\"><span id=\"ds-help\">Đơn vị: VND</span></label>",
+      "css": ".ds-field { display:grid; gap:7px; color:#142742; font:600 14px/21px system-ui; } .ds-field input { min-height:50px; padding:13px 14px; border:1px solid #CDD8E5; border-radius:12px; background:#FFFFFF; color:#142742; font:16px system-ui; box-sizing:border-box; } .ds-field input:focus-visible { outline:2px solid #205BCC; outline-offset:2px; } .ds-field span { color:#51637B; font:12px/19px system-ui; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Current Card; empty-state illustration, no fabricated money.",
+      "html": "<section class=\"ds-card\"><h3>Chưa có giao dịch</h3><p>Thêm giao dịch để bắt đầu theo dõi chi tiêu.</p></section>",
+      "css": ".ds-card { display:grid; gap:14px; padding:20px; border:1px solid #CDD8E5; border-radius:20px; background:#FFFFFF; color:#142742; } .ds-card h3 { margin:0; font:700 19px/27px system-ui; letter-spacing:-.3px; } .ds-card p { margin:0; font:15px/23px system-ui; }"
+    },
+    {
+      "name": "Choice",
+      "kind": "chip",
+      "refersTo": "choice",
+      "description": "Current selected Choice; observed minimum height is 46, not the approved 48.",
+      "html": "<button class=\"ds-choice\" aria-pressed=\"true\">Ăn uống</button>",
+      "css": ".ds-choice { min-height:46px; padding:11px 14px; border:1px solid #205BCC; border-radius:10px; background:#E8F0FF; color:#205BCC; font:600 14px/21px system-ui; } .ds-choice:hover { opacity:.9; } .ds-choice:active { opacity:.7; } .ds-choice:disabled { opacity:.45; } .ds-choice:focus-visible { outline:2px solid #205BCC; outline-offset:3px; }"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Current five destinations; approved four-destination architecture is not yet implemented.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Điều hướng chính\"><button aria-current=\"page\">Tổng quan</button><button>Sổ giao dịch</button><button>Thêm mới</button><button>Ngân sách</button><button>Cài đặt</button></nav>",
+      "css": ".ds-nav { display:flex; gap:4px; padding:8px; background:#FFFFFF; border-top:1px solid #CDD8E5; } .ds-nav button { flex:1; min-width:0; min-height:56px; padding:12px 3px; border:0; border-radius:12px; background:#FFFFFF; color:#51637B; font:700 11px system-ui; } .ds-nav [aria-current] { background:#E8F0FF; color:#205BCC; } .ds-nav button:hover { opacity:.9; } .ds-nav button:active { opacity:.72; } .ds-nav button:focus-visible { outline:2px solid #205BCC; outline-offset:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Calm clarity for everyday household spending.",
+    "overview": "Kesefly uses blue accents, cool neutral surfaces, dark ink text, and restrained rounded controls for everyday household expense management. The approved direction is calm, trustworthy, modern, and Android-first, using Vietnamese copy and VND amounts.",
+    "keyCharacteristics": [
+      "Blue identity and the existing lowercase kesefly / k. mark.",
+      "Readable financial information and explicit transaction states.",
+      "System-aware light and dark palettes.",
+      "Approved destination: Material Design 3 through React Native Paper."
+    ],
+    "rules": [
+      {
+        "name": "The Meaning Before Color Rule",
+        "body": "Labels and amounts must communicate state without relying on color. Spending is not an error.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Use the approved brief for future UX decisions and this baseline to understand existing code.",
+      "Keep Vietnamese labels, full VND amounts, and explicit financial states.",
+      "Preserve role ownership and existing route/data contracts.",
+      "Verify contrast, large text, TalkBack, keyboard insets, and Android Back on rendered native screens."
+    ],
+    "donts": [
+      "Do not treat this baseline as a seed or as proof of a completed Paper migration.",
+      "Do not copy existing small labels or undersized controls into new screens when they conflict with the approved brief.",
+      "Do not invent financial records, savings claims, or backend capabilities.",
+      "Do not use decoration, gradients, or AI-dashboard motifs to replace useful financial hierarchy."
+    ]
+  }
+}

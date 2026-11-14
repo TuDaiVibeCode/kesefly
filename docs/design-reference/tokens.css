@@ -1,0 +1,26 @@
+/* Hallmark · shape: app screen · theme: Kesefly teal exploration (by request) · scope: app · genre: modern-minimal · modes: light+dark · data: sample · v2.0.0 */
+/* Critique: one ledger summary, no KPI tiles; all figures explicitly illustrative; native chrome requested by owner. */
+:root {
+  --font-body: 'Roboto', sans-serif;
+  --color-paper: #FAF9F5; --color-paper-2: #F0F0E9; --color-paper-3: #E5E9E1;
+  --color-ink: #202B28; --color-muted: #59645D; --color-rule: #D6DBD3;
+  --color-accent: #006B5F; --color-accent-ink: #F8FFFC; --color-tonal: #D4EBDF; --color-tonal-ink: #174C42;
+  --color-focus: #006B5F; --color-error: #A92D25; --color-disabled: #E0E3DC; --color-disabled-ink: #626A64;
+  --color-chart-1: #006B5F; --color-chart-2: #679086; --color-chart-3: #B29765; --color-chart-4: #9CA59A;
+  --color-clear: transparent; --color-scrim: #111B1980; --color-board: #E9E8E2;
+  --space-0: 0px; --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
+  --radius-md: 16px; --radius-lg: 28px; --radius-full: 999px;
+  color-scheme: light; font-family: var(--font-body);
+}
+[data-mode="dark"] {
+  --color-paper: #141B18; --color-paper-2: #202924; --color-paper-3: #2C3730;
+  --color-ink: #E6EBE4; --color-muted: #B3BEB4; --color-rule: #39463C;
+  --color-accent: #8AD7C1; --color-accent-ink: #07382E; --color-tonal: #294B3E; --color-tonal-ink: #B7E9D2;
+  --color-focus: #8AD7C1; --color-error: #FFB4AB; --color-disabled: #323C35; --color-disabled-ink: #AFB8AF;
+  --color-chart-1: #8AD7C1; --color-chart-2: #6CA99A; --color-chart-3: #C7B17F; --color-chart-4: #929F90;
+  --color-board: #101612; color-scheme: dark;
+}
+@font-face { font-family: 'Roboto'; src: url('./assets/roboto-400.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Roboto'; src: url('./assets/roboto-500.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Roboto'; src: url('./assets/roboto-700.ttf') format('truetype'); font-weight: 700; font-display: swap; }

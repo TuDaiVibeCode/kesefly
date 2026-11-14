@@ -5,12 +5,22 @@ import { discardAlert, importNativeAlerts, ingestImage, ingestText, processQueue
 import { getCaptureStatus, isCaptureAvailable, type CaptureStatus } from '@/core/ingestion/nativeCapture';
 import { getAIConsent, isAIConfigured, setAIConsent as storeAIConsent } from '@/core/ai/client';
 import { subscribeAuth, syncTransactions } from '@/core/firebase/cloud';
-import type { ParsedTransaction, QueuedAlert, Transaction } from '@/types/transaction';
+import { CATEGORIES, type Category, type ParsedTransaction, type QueuedAlert, type Transaction } from '@/types/transaction';
 
 type User = { uid: string; email: string | null };
+type CategoryBudgets = Partial<Record<Category, number>>;
+function parseCategoryBudgets(raw: string | null): CategoryBudgets {
+  try {
+    const value = JSON.parse(raw ?? '{}') as Record<string, unknown>;
+    return Object.fromEntries(CATEGORIES.flatMap((category) => {
+      const amount = value[category];
+      return typeof amount === 'number' && Number.isSafeInteger(amount) && amount > 0 ? [[category, amount]] : [];
+    })) as CategoryBudgets;
+  } catch { return {}; }
+}
 interface FinanceContextValue {
   transactions: Transaction[]; queue: QueuedAlert[]; loading: boolean; busy: boolean; processing: boolean;
-  error: string | null; notice: string | null; budget: number; cloudSync: boolean; user: User | null;
+  error: string | null; notice: string | null; budget: number; categoryBudgets: CategoryBudgets; cloudSync: boolean; user: User | null;
   capture: CaptureStatus | null; aiConsent: boolean; aiConfigured: boolean;
   refresh: () => Promise<void>; dismissError: () => void;
   run: (task: () => Promise<void>, success?: string) => Promise<boolean>;
@@ -18,7 +28,8 @@ interface FinanceContextValue {
   remove: (id: string) => Promise<boolean>;
   addText: (text: string) => Promise<boolean>; addImage: (uri: string) => Promise<boolean>;
   retryQueue: (ids: readonly string[]) => Promise<boolean>; discardQueue: (id: string) => Promise<boolean>;
-  saveBudget: (value: number) => Promise<boolean>; setCloudSync: (enabled: boolean) => Promise<boolean>;
+  saveBudget: (value: number) => Promise<boolean>; saveCategoryBudget: (category: Category, value: number) => Promise<boolean>;
+  setCloudSync: (enabled: boolean) => Promise<boolean>;
   setAIConsent: (enabled: boolean) => Promise<boolean>;
   sync: () => Promise<boolean>;
 }
@@ -34,6 +45,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [budget, setBudget] = useState(0);
+  const [categoryBudgets, setCategoryBudgets] = useState<CategoryBudgets>({});
   const [cloudSync, setCloudSyncState] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
@@ -50,13 +62,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const request = ++refreshRevision.current;
     const account = authRevision.current;
     await purgeExpiredAlerts();
-    const [rows, alerts, storedBudget, syncEnabled, status, consentEnabled] = await Promise.all([
+    const [rows, alerts, storedBudget, storedCategoryBudgets, syncEnabled, status, consentEnabled] = await Promise.all([
       repository.listTransactions(), repository.listQueuedAlerts(), repository.getSetting('monthlyBudget'),
-      repository.getSetting('cloudSync'), isCaptureAvailable() ? getCaptureStatus() : Promise.resolve(null), getAIConsent(),
+      repository.getSetting('categoryBudgets'), repository.getSetting('cloudSync'),
+      isCaptureAvailable() ? getCaptureStatus() : Promise.resolve(null), getAIConsent(),
     ]);
     if (!mounted.current || request !== refreshRevision.current || account !== authRevision.current) return;
     setTransactions(rows); setQueue(alerts);
-    setBudget(Number(storedBudget) || 0); setCloudSyncState(syncEnabled === 'true'); setCapture(status);
+    setBudget(Number(storedBudget) || 0); setCategoryBudgets(parseCategoryBudgets(storedCategoryBudgets)); setCloudSyncState(syncEnabled === 'true'); setCapture(status);
     setAIConsentState(consentEnabled);
   }, []);
   const foreground = useCallback(async () => {
@@ -128,12 +141,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const result = await syncTransactions();
     setNotice(`Đã gửi ${result.pushed}, nhận ${result.pulled} thay đổi.`);
   });
-  return <FinanceContext.Provider value={{ transactions, queue, loading, busy, processing, error, notice, budget, cloudSync, user, capture, aiConsent, aiConfigured, refresh,
+  return <FinanceContext.Provider value={{ transactions, queue, loading, busy, processing, error, notice, budget, categoryBudgets, cloudSync, user, capture, aiConsent, aiConfigured, refresh,
     dismissError: () => { setError(null); setNotice(null); }, run, save,
     remove: (id) => run(() => repository.deleteTransaction(id), 'Đã xóa. Dấu xóa được giữ để đồng bộ an toàn.'),
     addText, addImage, retryQueue,
     discardQueue: (id) => run(() => discardAlert(id), 'Đã xóa mục và ảnh riêng khỏi hàng đợi.'),
     saveBudget: (value) => run(() => repository.setSetting('monthlyBudget', String(value)), 'Đã lưu ngân sách hàng tháng trên thiết bị.'),
+    saveCategoryBudget: (category, value) => run(async () => {
+      const next = { ...categoryBudgets };
+      if (value > 0) next[category] = value; else delete next[category];
+      await repository.setSetting('categoryBudgets', JSON.stringify(next));
+    }, value > 0 ? 'Đã lưu ngân sách danh mục trên thiết bị.' : 'Đã bỏ ngân sách danh mục.'),
     setAIConsent: (enabled) => run(async () => {
       if (enabled && !user) throw new Error('Cần đăng nhập trước khi đồng ý gửi dữ liệu đến OpenAI.');
       await storeAIConsent(enabled);

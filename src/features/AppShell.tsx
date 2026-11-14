@@ -1,48 +1,52 @@
-import { Link, Slot, usePathname } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, router, usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Appbar, BottomNavigation, Menu, Text } from 'react-native-paper';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { FinanceProvider, useFinance } from './FinanceProvider';
-import { useTokens } from '@/shared/theme';
-import { Copy } from '@/shared/ui';
+import { AppThemeProvider, useAppearance } from '@/shared/AppThemeProvider';
+import { spacing, useAppTheme } from '@/shared/theme';
 
-const tabs = [
-  { href: '/', label: 'Tổng quan' }, { href: '/transactions', label: 'Sổ giao dịch' },
-  { href: '/add', label: 'Thêm mới' }, { href: '/budget', label: 'Ngân sách' }, { href: '/settings', label: 'Cài đặt' },
+const destinations = [
+  { key: '/', title: 'Tổng quan', focusedIcon: 'view-dashboard', unfocusedIcon: 'view-dashboard-outline' },
+  { key: '/transactions', title: 'Giao dịch', focusedIcon: 'receipt-text', unfocusedIcon: 'receipt-text-outline' },
+  { key: '/budget', title: 'Ngân sách', focusedIcon: 'wallet', unfocusedIcon: 'wallet-outline' },
+  { key: '/settings', title: 'Cài đặt', focusedIcon: 'cog', unfocusedIcon: 'cog-outline' },
 ] as const;
 function Shell() {
-  const t = useTokens(); const path = usePathname(); const { transactions, cloudSync, aiConsent } = useFinance();
-  const reviews = transactions.filter((row) => row.status === 'review').length;
-  return <SafeAreaView style={[styles.root, { backgroundColor: t.background }]}>
-    <View style={[styles.masthead, { borderColor: t.border, backgroundColor: t.surface }]}>
-      <View style={styles.mastheadContent}>
-        <View style={styles.brandRow}><View style={[styles.brandMark, { backgroundColor: t.primary }]}><Text style={[styles.brandInitial, { color: t.onPrimary }]}>k.</Text></View>
-          <Text style={[styles.brand, { color: t.text }]}>kesefly<Text style={{ color: t.primary }}> / </Text><Text style={styles.brandSuffix}>sổ tiền riêng</Text></Text>
-        </View>
-        <Copy tone="positive" style={styles.private}>{aiConsent ? 'AI đám mây · gửi do bạn chọn' : cloudSync ? 'Đồng bộ do bạn kiểm soát' : 'Sổ lưu trên máy · AI chưa bật'}</Copy>
-        {process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' && <Copy tone="warning" style={styles.private}>Firebase Auth / đồng bộ dùng emulator · máy chủ AI cấu hình riêng · không dùng dữ liệu thật</Copy>}
-      </View>
+  const theme = useAppTheme();
+  const path = usePathname();
+  const { transactions } = useFinance();
+  const { preference, setPreference, storageError } = useAppearance();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const detail = path === '/add' || path === '/queue' || path === '/analytics' || path.startsWith('/transaction/') || path.startsWith('/insight/');
+  const index = Math.max(0, destinations.findIndex((tab) => tab.key === path));
+  const title = path === '/add' ? 'Thêm giao dịch' : path === '/queue' ? 'Chờ xử lý' : path === '/analytics' ? 'Phân tích và quan sát' : path.startsWith('/insight/') ? 'Chi tiết quan sát' : path.startsWith('/transaction/') ? 'Chi tiết giao dịch' : destinations[index].title;
+  const reviews = transactions.filter((row) => row.status === 'review' && !row.deletedAt).length;
+  const routes = destinations.map((tab) => ({ ...tab, badge: tab.key === '/transactions' && reviews ? reviews : undefined, accessibilityLabel: tab.title }));
+  return <SafeAreaView style={[styles.root, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
+    <StatusBar style={theme.dark ? 'light' : 'dark'} />
+    <Appbar.Header statusBarHeight={0} style={{ backgroundColor: theme.colors.background }}>
+      {detail && <Appbar.BackAction accessibilityLabel="Quay lại" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} />}
+      <Appbar.Content title={title} />
+      {!detail && <Appbar.Action icon="chart-box-outline" accessibilityLabel="Mở phân tích chi tiêu" onPress={() => router.push('/analytics')} />}
+      <Menu visible={menuOpen} onDismiss={() => setMenuOpen(false)} anchor={<Appbar.Action icon="theme-light-dark" accessibilityLabel="Chọn giao diện" onPress={() => setMenuOpen(true)} />}>
+        {([{ value: 'system', label: 'Theo hệ thống' }, { value: 'light', label: 'Sáng' }, { value: 'dark', label: 'Tối' }] as const).map((item) => <Menu.Item key={item.value} title={item.label} leadingIcon={preference === item.value ? 'check' : undefined} accessibilityLabel={`${item.label}${preference === item.value ? ', đang chọn' : ''}`} onPress={() => { setPreference(item.value); setMenuOpen(false); }} />)}
+      </Menu>
+    </Appbar.Header>
+    {storageError && <Text accessibilityRole="alert" style={[styles.message, { color: theme.colors.error }]}>{storageError}</Text>}
+    <View style={styles.body}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }} />
     </View>
-    <View style={styles.body}><Slot /></View>
-    <View style={[styles.navigation, { backgroundColor: t.surface, borderColor: t.border }]}>
-      <View style={styles.navigationInner}>{tabs.map((tab) => {
-        const selected = path === tab.href || (tab.href === '/transactions' && path.startsWith('/transaction/'));
-        return <Link key={tab.href} href={tab.href} asChild style={[styles.tab, { backgroundColor: selected ? t.primarySoft : t.surface }]}>
-          <Pressable accessibilityRole="tab" accessibilityState={{ selected }} android_ripple={{ color: t.primarySoft }}>
-            <Text style={[styles.tabText, { color: selected ? t.primary : t.muted }]}>{tab.label}</Text>
-            {tab.href === '/transactions' && reviews > 0 && <Text style={[styles.badge, { color: t.warning }]}>{reviews} cần duyệt</Text>}
-          </Pressable>
-        </Link>;
-      })}</View>
-    </View>
+    {!detail && <BottomNavigation.Bar navigationState={{ index, routes }} onTabPress={({ route, preventDefault }) => {
+      preventDefault();
+      if (route.key !== path) router.navigate(route.key);
+    }} activeColor={theme.colors.onPrimaryContainer} inactiveColor={theme.colors.onSurfaceVariant} activeIndicatorStyle={{ backgroundColor: theme.colors.primaryContainer }} style={{ backgroundColor: theme.colors.elevation.level1 }} keyboardHidesNavigationBar />}
+    {detail && <SafeAreaView edges={['bottom']} />}
   </SafeAreaView>;
 }
-export default function AppShell() { return <FinanceProvider><Shell /></FinanceProvider>; }
-const styles = StyleSheet.create({
-  root: { flex: 1 }, body: { flex: 1 }, masthead: { borderBottomWidth: 1 },
-  mastheadContent: { maxWidth: 960, width: '100%', alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, brandMark: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  brandInitial: { fontWeight: '800', fontSize: 24 }, brand: { fontSize: 19, fontWeight: '800', letterSpacing: -0.6 }, brandSuffix: { fontSize: 12, fontWeight: '500', letterSpacing: 0 }, private: { fontSize: 11, fontWeight: '600' },
-  navigation: { borderTopWidth: 1 }, navigationInner: { maxWidth: 960, width: '100%', alignSelf: 'center', flexDirection: 'row', padding: 8, gap: 4 },
-  tab: { flex: 1, minHeight: 56, paddingHorizontal: 3, paddingVertical: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center', gap: 2 },
-  tabText: { fontSize: 11, fontWeight: '700', textAlign: 'center' }, badge: { fontSize: 9, fontWeight: '600' },
-});
+export default function AppShell() {
+  return <SafeAreaProvider><AppThemeProvider><FinanceProvider><Shell /></FinanceProvider></AppThemeProvider></SafeAreaProvider>;
+}
+const styles = StyleSheet.create({ root: { flex: 1 }, body: { flex: 1 }, message: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm } });

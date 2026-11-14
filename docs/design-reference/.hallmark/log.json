@@ -1,0 +1,39 @@
+[
+ {
+  "scope": "app",
+  "shape": "household ledger",
+  "theme": "Kesefly teal exploration (by request)",
+  "axes": [
+   "spending-first",
+   "flat-list",
+   "one-tonal-summary"
+  ],
+  "hero": "none (app screen)",
+  "nav": "Android four destinations",
+  "footer": "none",
+  "imagery": "none; functional MDI icons",
+  "photos": [],
+  "entry": "index.html",
+  "fingerprint": [
+   "summary",
+   "comparison",
+   "distribution",
+   "transactions",
+   "fab",
+   "bottom-navigation"
+  ],
+  "sections": [
+   "monthly spending",
+   "equivalent-period comparison",
+   "category distribution",
+   "recent transactions"
+  ],
+  "signature": "A spending-first household ledger with an equivalent-period comparison",
+  "waived": [
+   "47b: explicit unframed 393x852 viewport"
+  ],
+  "prompt": "User-requested separate teal/warm Android dashboard visual reference, light/dark, no src changes.",
+  "date": "2026-11-14",
+  "mode": "build"
+ }
+]

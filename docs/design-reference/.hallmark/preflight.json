@@ -1,0 +1,20 @@
+{
+  "scanned": "2026-11-14T14:37:40.048814",
+  "findings": {
+    "fonts": "DESIGN.md:257 Roboto",
+    "palette": "DESIGN.md:76 approved blue; user requests isolated teal exploration",
+    "framework": "package.json React Native, Expo, Paper",
+    "scope": "393x852 visual reference only"
+  },
+  "preserve": [
+    "src/**",
+    "DESIGN.md",
+    "PRODUCT.md",
+    "native app boundaries"
+  ],
+  "introduce": [
+    "separate teal/warm HTML reference",
+    "light and dark states",
+    "explicit sample data"
+  ]
+}

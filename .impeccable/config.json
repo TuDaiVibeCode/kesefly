@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "roboto",
+        "createdAt": "2026-11-14T07:56:51.988Z",
+        "reason": "user confirmed: Kesefly approved visual specification explicitly requires Roboto typography for Android Material Design 3; reference preserves that font choice."
+      }
+    ]
+  }
+}
