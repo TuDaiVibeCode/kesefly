@@ -22,6 +22,7 @@ export function resolveAIEndpoint(origin: string | undefined, allowInsecureHTTP 
 
 export function getAIEndpoint(): string | null {
   // Expo requires static references to inline these public build-time settings.
-  return resolveAIEndpoint(process.env.EXPO_PUBLIC_AI_API_URL,
+  const origin = process.env.EXPO_PUBLIC_AI_API_URL || 'http://localhost:3001';
+  return resolveAIEndpoint(origin,
     process.env.EXPO_PUBLIC_ALLOW_INSECURE_AI_HTTP === 'true');
 }

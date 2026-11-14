@@ -152,3 +152,17 @@ export async function parseCloudAlert(alert: QueuedAlert): Promise<{ transaction
     return { transaction, session };
   } catch (error) { throw safeError(error); }
 }
+
+export async function checkBackendHealth(): Promise<boolean> {
+  const endpoint = getAIEndpoint();
+  if (!endpoint) return false;
+  try {
+    const origin = new URL(endpoint).origin;
+    const response = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) return false;
+    const data = await response.json() as { status?: string };
+    return data?.status === 'ok';
+  } catch {
+    return false;
+  }
+}
