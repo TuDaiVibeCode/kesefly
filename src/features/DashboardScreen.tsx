@@ -46,7 +46,7 @@ export default function DashboardScreen() {
         <Action variant="secondary" label={budget > 0 ? 'Điều chỉnh ngân sách' : 'Đặt ngân sách'} onPress={() => router.push('/budget')} />
       </Card>
     </View>
-    <Banner>Không đọc SMS. Nhập tay dùng ngoại tuyến, không cần tài khoản. AI chỉ gửi nội dung thô / ảnh qua Firebase đến OpenAI sau khi đăng nhập, đồng ý riêng và xác nhận các mục đã chọn. Bạn duyệt kết quả trước khi ghi vào tổng.</Banner>
+    <Banner>Không đọc SMS. Nhập tay dùng ngoại tuyến, không cần tài khoản. AI chỉ gửi nội dung thô / ảnh qua máy chủ Express của nhóm phát triển đến OpenAI sau khi đăng nhập, đồng ý riêng và xác nhận các mục đã chọn. Bạn duyệt kết quả trước khi ghi vào tổng.</Banner>
   </Screen>;
 }
 const styles = StyleSheet.create({

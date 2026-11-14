@@ -19,7 +19,7 @@ function Shell() {
           <Text style={[styles.brand, { color: t.text }]}>kesefly<Text style={{ color: t.primary }}> / </Text><Text style={styles.brandSuffix}>sổ tiền riêng</Text></Text>
         </View>
         <Copy tone="positive" style={styles.private}>{aiConsent ? 'AI đám mây · gửi do bạn chọn' : cloudSync ? 'Đồng bộ do bạn kiểm soát' : 'Sổ lưu trên máy · AI chưa bật'}</Copy>
-        {process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' && <Copy tone="warning" style={styles.private}>Môi trường emulator · không dùng dữ liệu thật</Copy>}
+        {process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' && <Copy tone="warning" style={styles.private}>Firebase Auth / đồng bộ dùng emulator · máy chủ AI cấu hình riêng · không dùng dữ liệu thật</Copy>}
       </View>
     </View>
     <View style={styles.body}><Slot /></View>

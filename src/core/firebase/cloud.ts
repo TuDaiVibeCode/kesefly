@@ -27,7 +27,7 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
+import { getAIEndpoint } from '../ai/endpoint';
 import { AI_CONSENT_VERSION } from '../../types/ai';
 import {
   claimSyncOwner,
@@ -57,7 +57,7 @@ const options: FirebaseOptions = {
 const APP_NAME = 'kesefly';
 const WRITE_BATCH_SIZE = 25;
 const READ_PAGE_SIZE = 100;
-let services: { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions } | null = null;
+let services: { app: FirebaseApp; auth: Auth; db: Firestore } | null = null;
 let authGeneration = 0;
 let authTransitions = 0;
 const revokedAIConsent = new Set<string>();
@@ -71,20 +71,17 @@ function emulatorEndpoint(value: string | undefined, port: number): { host: stri
 }
 
 function cloudConfiguration() {
-  const region = process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_REGION ?? 'asia-southeast1';
-  // getFunctions also accepts arbitrary domains. Only permit a Firebase region here.
-  if (!/^[a-z]+-[a-z]+\d$/.test(region)) throw new Error('AI_CONFIGURATION');
+  // Auth and manual Firestore sync do not depend on the optional AI server URL.
   const emulators = process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? {
     auth: emulatorEndpoint(process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST, 9099),
     firestore: emulatorEndpoint(process.env.EXPO_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST, 8080),
-    functions: emulatorEndpoint(process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_HOST, 5001),
   } : null;
-  return { region, emulators };
+  return { emulators };
 }
 
 export function isCloudAIConfigured(): boolean {
   if (!isFirebaseConfigured()) return false;
-  try { cloudConfiguration(); return true; } catch { return false; }
+  try { cloudConfiguration(); return getAIEndpoint() !== null; } catch { return false; }
 }
 let activeSync: Promise<{ pushed: number; pulled: number }> | null = null;
 
@@ -93,14 +90,14 @@ export function isFirebaseConfigured(): boolean {
     .every((value) => typeof value === 'string' && value.trim().length > 0);
 }
 
-function getServices(): { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions } {
+function getServices(): { app: FirebaseApp; auth: Auth; db: Firestore } {
   if (!isFirebaseConfigured()) {
     throw new Error('Cloud is not configured. Your data stays on this device.');
   }
   if (!services) {
     // Validate every endpoint before initializing anything; invalid emulator configuration
     // must never silently use a production service.
-    const { region, emulators } = cloudConfiguration();
+    const { emulators } = cloudConfiguration();
     const app = getApps().find((candidate) => candidate.name === APP_NAME) ?? initializeApp(options, APP_NAME);
     let auth: Auth;
     try {
@@ -117,20 +114,17 @@ function getServices(): { app: FirebaseApp; auth: Auth; db: Firestore; functions
     }
     beforeAuthStateChanged(auth, () => { authGeneration += 1; });
     const db = getFirestore(app);
-    const functions = getFunctions(app, region);
     if (emulators) {
       connectFirestoreEmulator(db, emulators.firestore.host, emulators.firestore.port);
-      connectFunctionsEmulator(functions, emulators.functions.host, emulators.functions.port);
     }
-    services = { app, auth, db, functions };
+    services = { app, auth, db };
   }
   return services;
 }
 
-/** The callable shares the named app and persisted Auth used by cloud sync. */
-export function getFirebaseAIServices(): { auth: Auth; functions: Functions } {
-  const { auth, functions } = getServices();
-  return { auth, functions };
+/** AI requests use the same persisted Auth identity as optional manual cloud sync. */
+export function getFirebaseAIAuth(): Auth {
+  return getServices().auth;
 }
 
 function assertSession(session: FirebaseAISession): void {

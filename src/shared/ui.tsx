@@ -47,7 +47,7 @@ export function Feedback() {
   const { error, notice, dismissError, loading, processing } = useFinance();
   return <>
     {loading && <Row><ActivityIndicator /><Copy tone="muted">Đang mở sổ…</Copy></Row>}
-    {processing && <Copy tone="primary">Đang gửi các mục đã chọn qua Firebase đến OpenAI. Không thể rút lại yêu cầu đã gửi; kết quả vẫn cần bạn duyệt.</Copy>}
+    {processing && <Copy tone="primary">Đang gửi các mục đã chọn qua máy chủ Express của nhóm phát triển đến OpenAI. Không thể rút lại yêu cầu đã gửi; kết quả vẫn cần bạn duyệt.</Copy>}
     {(error || notice) && <View style={styles.feedback}><Banner danger={!!error}>{error || notice}</Banner><Action compact variant="secondary" label="Đóng thông báo" onPress={dismissError} /></View>}
   </>;
 }

@@ -18,5 +18,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["functions", "node_modules", "dist"]
+  "exclude": ["server", "node_modules", "dist"]
 }

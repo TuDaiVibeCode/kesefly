@@ -55,8 +55,10 @@
     "build:android:dev": "npx eas-cli build --platform android --profile development",
     "build:android:preview": "npx eas-cli build --platform android --profile preview",
     "web:export": "expo export --platform web",
-    "functions:build": "npm run build --prefix functions",
-    "functions:test": "npm test --prefix functions"
+    "server:dev": "npm run dev --prefix server",
+    "server:start": "npm start --prefix server",
+    "server:build": "npm run build --prefix server",
+    "server:test": "npm test --prefix server"
   },
   "private": true,
   "allowScripts": {
