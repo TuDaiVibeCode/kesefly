@@ -1,0 +1,9 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "transactions", "fieldPath": "merchant", "indexes": [] },
+    { "collectionGroup": "transactions", "fieldPath": "date", "indexes": [] },
+    { "collectionGroup": "transactions", "fieldPath": "amount", "indexes": [] },
+    { "collectionGroup": "transactions", "fieldPath": "confidence", "indexes": [] }
+  ]
+}

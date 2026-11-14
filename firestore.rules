@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function timestampMillis(value) {
+      return value is int && value > 0 && value <= 8640000000000000;
+    }
+
+    function calendarDate(value) {
+      let year = int(value[0:4]);
+      let month = int(value[5:7]);
+      let day = int(value[8:10]);
+      let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+      let days = month == 2 ? (leap ? 29 : 28) : (month in [4, 6, 9, 11] ? 30 : 31);
+      return day <= days;
+    }
+
+    function validTransaction(data, transactionId) {
+      let fields = ['id', 'amount', 'currency', 'type', 'merchant', 'category', 'date',
+                    'confidence', 'source', 'status', 'updatedAt', 'deletedAt'];
+      return data.keys().hasAll(fields) && data.keys().hasOnly(fields)
+        && data.id is string && data.id == transactionId
+        && data.id.matches('^[A-Za-z0-9_-]{1,128}$')
+        && data.amount is int && data.amount > 0 && data.amount <= 1000000000000000
+        && data.currency == 'VND'
+        && data.type in ['EXPENSE', 'INCOME']
+        && data.merchant is string && data.merchant.size() >= 1 && data.merchant.size() <= 160
+        && data.merchant == data.merchant.trim()
+        && !data.merchant.matches('[\\s\\S]*[\\x00-\\x1F\\x7F][\\s\\S]*')
+        && data.category in ['Food & Drink', 'Shopping', 'Transport', 'Bills', 'Transfer', 'Salary', 'Other']
+        && data.date is string
+        && data.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$')
+        && calendarDate(data.date)
+        && data.confidence is number && data.confidence >= 0 && data.confidence <= 1
+        && data.source in ['notification', 'manual', 'image']
+        && data.status in ['review', 'confirmed']
+        && timestampMillis(data.updatedAt)
+        && (data.deletedAt == null || (timestampMillis(data.deletedAt) && data.deletedAt <= data.updatedAt))
+        && (data.status == 'confirmed' || data.deletedAt != null);
+    }
+
+    match /users/{uid}/transactions/{transactionId} {
+      allow get: if owner(uid);
+      allow list: if owner(uid) && request.query.limit != null && request.query.limit <= 100;
+      allow create: if owner(uid) && validTransaction(request.resource.data, transactionId);
+      // Reject stale revisions; at equal revisions only deletion may replace a live record.
+      allow update: if owner(uid) && validTransaction(request.resource.data, transactionId)
+        && (request.resource.data.updatedAt > resource.data.updatedAt
+          || (request.resource.data.updatedAt == resource.data.updatedAt
+            && resource.data.deletedAt == null && request.resource.data.deletedAt != null));
+      // Physical deletes would resurrect on another offline device. Retain LWW tombstones instead.
+      allow delete: if false;
+    }
+    // No other document path has an allow rule: default deny, including user roots and raw queues.
+  }
+}

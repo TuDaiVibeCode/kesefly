@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // This app never uploads images, notifications, prompts, models, or other files.
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
