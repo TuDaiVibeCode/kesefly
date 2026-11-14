@@ -18,6 +18,21 @@ Các lầnsetuptrước đãpassmanualSQLiteUI/reload,Rulesemulator,parserunit v
 - Productionwebexportpass;ExpressserveSPA`/transaction/unknown-demo`200HTML+COOP/COEP,`/api/unknown`404JSONkhôngfallthrough.
 - AndroidprebuildpassvớiprivateLANHTTPopt-inflag/configplugin. Chưacompile/installAPKhoặcLANdevicetest.
 
+## Native/APK — Người1, branch feat/native-capture (2026-11-14)
+
+- JS unit tests: `npm test` 9/9 pass sau khi trích `bankPackages.ts` làm nguồn chuẩn package (validator JS khớp pattern native; test mới `tests/nativeCapture.test.ts` chạy RED trước khi trích).
+- JVM unit tests `:bank-notifications:testDebugUnitTest`: 13/13 pass (RED quan sát được: 3 class chưa tồn tại → compile fail; sau đó GREEN). Che phủ: OTP/verification luôn loại; promo chỉ loại khi không có bằng chứng giao dịch (memo có "cashback" vẫn qua); fold dấu Việt; package pattern (wildcard/space/segment rỗng bị chặn); debug producer title luôn có marker "không phải ngân hàng thật" và chống newline injection.
+- `:app:assembleDebug` BUILD SUCCESSFUL từ commit `dbbcb04`; lần đầu fail `mergeExtDexDebug` OOM heap 1g, pass với `-Xmx4g`. APK `app-debug.apk` (284MB) kiểm tra bằng aapt2: package `com.kesefly.app`, service `BankNotificationListener` với `BIND_NOTIFICATION_LISTENER_SERVICE`, `allowBackup=false`, `fullBackupContent=false`, `dataExtractionRules=@xml/kesefly_data_extraction_rules`, minSdk 24/targetSdk 36, đủ ABI (135 native libs — không còn giới hạn ARM64/GPU).
+- `npx expo prebuild --platform android --no-install` pass; config plugin `with-bank-notifications` áp đúng vào manifest generate.
+- Thiết bị thật Galaxy S26 (Android 16) qua rdb: cài APK đang chạy (transfer 284MB chậm qua tunnel); kết quả cài + test capture consent/allowlist/persistence/revoke trên thiết bị ghi bổ sung sau khi hoàn tất.
+
+## Chưa xác nhận với dịch vụ thật
+
+- Chưa cung cấp OpenAI API key/Firebase project của đội: chưa live provider call,model access/billing,Functions deploy,production Auth/sync hoặc public Hosting.
+- Notification listener trên thiết bị thật (consent/allowlist/persist-before-ack/revoke dọn raw) chưa quan sát trực tiếp trong phiên này; APK đã build nhưng install/device tests đang chạy. `postTestAlert` producer mới, chưa chạy trên device.
+- Không có iOS device build: notification capture iOS không thể, manual/text/ảnh vẫn là đường dùng được.
+- Chưa chứng nhận production security/AppCheck/account deletion/encrypted-at-rest/PlayPolicy. Một DB sticky owner vẫn local,logout không tự xóa/ẩn ledger/capture.
+- Emulator guard/tests không fake OpenAI response và không thay thế live text/vision accuracy test.
 ## Giới hạn
 
 - ChưaOpenAIkey/Firebaseprojectđộinênchưaactualprovidertext/vision,billing/modelaccess,productionAuth/sync/publicHTTPS.

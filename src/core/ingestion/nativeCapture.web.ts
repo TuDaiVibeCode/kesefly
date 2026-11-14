@@ -1,5 +1,7 @@
+import { DEFAULT_BANK_PACKAGES } from './bankPackages';
 import type { NativeBankAlert } from '../../types/transaction';
-export const DEFAULT_BANK_PACKAGES = ['com.VCB', 'com.vnpay.bidv', 'com.mbmobile', 'com.techcombank.retail', 'com.vietinbank.ipay'];
+
+export { DEFAULT_BANK_PACKAGES };
 export interface CaptureStatus { enabled: boolean; consent: boolean; packages: string[]; pending: number }
 const unavailable = () => new Error('Bank notification capture is available only in an Android development or production build.');
 export function isCaptureAvailable(): boolean { return false; }

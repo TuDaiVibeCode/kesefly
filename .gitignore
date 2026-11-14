@@ -63,3 +63,6 @@ example
 # generated native folders
 /ios
 /android
+
+# module local build outputs
+modules/*/android/build/
