@@ -9,4 +9,14 @@ version = '1.0.0'
 android {
   namespace 'expo.modules.banknotifications'
   defaultConfig { versionCode 1; versionName '1.0.0' }
+  testOptions { unitTests.includeAndroidResources = false }
+}
+
+repositories {
+  google()
+  mavenCentral()
+}
+
+dependencies {
+  testImplementation 'junit:junit:4.13.2'
 }

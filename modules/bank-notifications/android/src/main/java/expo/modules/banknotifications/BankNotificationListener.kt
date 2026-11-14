@@ -3,14 +3,8 @@ package expo.modules.banknotifications
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import java.text.Normalizer
-import java.util.Locale
 
 class BankNotificationListener : NotificationListenerService() {
-  companion object {
-    private val excluded = Regex("\\b(otp|one[ -]time|verification code|security code|ma xac thuc|ma xac nhan|ma bao mat|khuyen mai|uu dai|giam gia|cashback|promotion|voucher|offer)\\b")
-  }
-
   override fun onListenerConnected() {
     super.onListenerConnected()
     CaptureStore.expire(this)
@@ -29,8 +23,7 @@ class BankNotificationListener : NotificationListenerService() {
       ?: ""
     val text = listOf(title, body).filter { it.isNotBlank() }.distinct().joinToString("\n").take(8192)
     if (text.isBlank()) return
-    val folded = Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase(Locale.ROOT).replace('đ', 'd')
-    if (excluded.containsMatchIn(folded)) return
+    if (AlertTextFilter.isExcluded(text)) return
     CaptureStore.capture(this, sbn.packageName, sbn.key, text, sbn.postTime)
   }
 }

@@ -12,6 +12,7 @@ interface CaptureModule {
   openBatterySettings(): Promise<void>;
   readAlerts(): Promise<NativeBankAlert[]>;
   acknowledge(ids: string[]): Promise<void>;
+  postTestAlert?(bankLabel: string, transactionText: string): Promise<void>;
 }
 const native = Platform.OS === 'android' ? requireOptionalNativeModule<CaptureModule>('BankNotifications') : null;
 const unavailable = () => new Error('Bank notification capture requires a Kesefly Android development or production build.');
@@ -27,6 +28,12 @@ export async function openCaptureSettings(): Promise<void> { if (!native) throw 
 export async function openBatterySettings(): Promise<void> { if (!native) throw unavailable(); await native.openBatterySettings(); }
 export async function readNativeAlerts(): Promise<NativeBankAlert[]> { return native ? native.readAlerts() : []; }
 export async function acknowledgeNativeAlerts(ids: string[]): Promise<void> { if (native && ids.length) await native.acknowledge(ids); }
+
+/** Test-only: posts a synthetic bank alert explicitly marked as not from a real bank. */
+export async function postTestAlert(bankLabel: string, transactionText: string): Promise<void> {
+  if (!native?.postTestAlert) throw unavailable();
+  await native.postTestAlert(bankLabel, transactionText);
+}
 
 /** Must complete before private iOS databases, images, or model files are created. */
 export async function protectPrivateStorage(): Promise<void> {

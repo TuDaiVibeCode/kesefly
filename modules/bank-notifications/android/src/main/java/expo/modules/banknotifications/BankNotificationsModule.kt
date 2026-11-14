@@ -38,5 +38,10 @@ class BankNotificationsModule : Module() {
         ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
       }
     }
+    // Test-only: posts a synthetic bank-style alert explicitly marked as not from a
+    // real bank. Capture still requires consent and an exact allowlisted package.
+    AsyncFunction("postTestAlert") { bankLabel: String, transactionText: String ->
+      DebugNotificationSender.post(context, bankLabel, transactionText, (System.currentTimeMillis() and 0x7FFFFFFF).toInt())
+    }
   }
 }
