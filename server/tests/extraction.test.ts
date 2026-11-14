@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Timestamp } from 'firebase-admin/firestore';
-import { HttpsError } from 'firebase-functions/v2/https';
+import { ApiError } from '../src/errors';
 import { AI_CONSENT_VERSION, type ParseTransactionRequest } from '../../src/types/ai';
 import { payloadDigest, requestKey, validateRequest } from '../src/input';
-import { consumeProviderResponse, validateCompletion } from '../src/provider';
-import { existingReservation, reservationError } from '../src/reservations';
+import { consumeProviderResponse, providerMetrics, validateCompletion } from '../src/provider';
 
 const now = Date.UTC(2026, 10, 14, 12);
 const request: ParseTransactionRequest = { requestId: 'request_1234567890', consentVersion: AI_CONSENT_VERSION, text: 'Thanh toan 50000 VND tai Cafe', receivedAt: now, image: null };
@@ -16,16 +14,16 @@ const output = (text: string) => ({ status: 'completed', output: [{ type: 'messa
 test('request rejects unbounded, malformed, future, unsupported and absent evidence', () => {
   assert.deepEqual(validateRequest(request, now), request);
   for (const change of [{ text: 'a'.repeat(6001) }, { text: '' }, { requestId: '../bad' }, { consentVersion: 'old' }, { receivedAt: now + 300001 }, { receivedAt: 0 }, { receivedAt: NaN }, { unknown: true }, { image: { base64: 'not base64', mimeType: 'image/jpeg' } }]) {
-    assert.throws(() => validateRequest({ ...request, ...change }, now), HttpsError);
+    assert.throws(() => validateRequest({ ...request, ...change }, now), ApiError);
   }
 });
 
 test('image MIME must match canonical bounded bytes', () => {
   const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64');
   assert.equal(validateRequest({ ...request, image: { base64: jpeg, mimeType: 'image/jpeg' } }, now).image?.base64, jpeg);
-  assert.throws(() => validateRequest({ ...request, image: { base64: jpeg, mimeType: 'image/png' } }, now), HttpsError);
-  assert.throws(() => validateRequest({ ...request, image: { base64: jpeg + '\n', mimeType: 'image/jpeg' } }, now), HttpsError);
-  assert.throws(() => validateRequest({ ...request, image: { base64: Buffer.alloc(2 * 1024 * 1024 + 1).toString('base64'), mimeType: 'image/jpeg' } }, now), HttpsError);
+  assert.throws(() => validateRequest({ ...request, image: { base64: jpeg, mimeType: 'image/png' } }, now), ApiError);
+  assert.throws(() => validateRequest({ ...request, image: { base64: jpeg + '\n', mimeType: 'image/jpeg' } }, now), ApiError);
+  assert.throws(() => validateRequest({ ...request, image: { base64: Buffer.alloc(2 * 1024 * 1024 + 1).toString('base64'), mimeType: 'image/jpeg' } }, now), ApiError);
 });
 
 test('digest includes consent, time, text and image but UID namespaces request ID', () => {
@@ -48,19 +46,16 @@ test('provider consumer accepts only completed single-message JSON or refusal', 
   for (const value of [{ ...output('{}'), status: 'incomplete' }, output('not json'), output('{"transaction":null,"extra":1}'), { status: 'completed', output: [] }, { status: 'completed', output: [...output('{}').output, ...output('{}').output] }, { status: 'completed', output: [{ type: 'function_call' }] }]) assert.throws(() => consumeProviderResponse(value));
 });
 
-test('replays never re-reserve pending, failed, expired or conflicting IDs', () => {
-  const digest = payloadDigest(request);
-  const pending = { digest, status: 'pending', expiresAt: Timestamp.fromMillis(now + 1) };
-  assert.deepEqual(existingReservation(pending, undefined, digest, now), { kind: 'error', code: 'REQUEST_PENDING' });
-  assert.deepEqual(existingReservation(pending, undefined, 'different', now), { kind: 'error', code: 'REQUEST_ID_CONFLICT' });
-  assert.deepEqual(existingReservation(pending, undefined, digest, now + 1), { kind: 'error', code: 'REQUEST_EXPIRED', expire: true });
-  assert.deepEqual(existingReservation({ ...pending, status: 'failed' }, undefined, digest, now), { kind: 'error', code: 'REQUEST_FAILED' });
-  assert.deepEqual(existingReservation({ ...pending, status: 'expired' }, undefined, digest, now), { kind: 'error', code: 'REQUEST_EXPIRED' });
-  const completed = { ...pending, status: 'completed' };
-  assert.deepEqual(existingReservation(completed, { expiresAt: pending.expiresAt, response: completion }, digest, now), { kind: 'completed', result: completion });
-  assert.deepEqual(existingReservation(completed, undefined, digest, now), { kind: 'error', code: 'REQUEST_EXPIRED', expire: true });
-  assert.deepEqual(existingReservation(completed, { expiresAt: Timestamp.fromMillis(now), response: completion }, digest, now), { kind: 'error', code: 'REQUEST_EXPIRED', expire: true });
-  const details: unknown = reservationError('REQUEST_ID_CONFLICT').details;
-  assert.ok(details && typeof details === 'object' && 'code' in details);
-  assert.equal(details.code, 'REQUEST_ID_CONFLICT');
+
+test('usage telemetry excludes raw fields and preserves unknown billing counts as null', () => {
+  const metrics = providerMetrics({ input_tokens: 210, output_tokens: 40, input_tokens_details: { cached_tokens: 100, cache_write_tokens: 30 }, prompt: 'PRIVATE INPUT', response: 'PRIVATE OUTPUT', apiKey: 'SECRET' }, 123.4);
+  assert.deepEqual(metrics, { latencyMs: 123, inputTokens: 210, outputTokens: 40, cachedInputTokens: 100, cacheWriteTokens: 30 });
+  assert.deepEqual(providerMetrics({ input_tokens: NaN, output_tokens: -1, input_tokens_details: { cached_tokens: 1.5 } }, 5), { latencyMs: 5, inputTokens: null, outputTokens: null, cachedInputTokens: null, cacheWriteTokens: null });
+});
+
+test('partial, empty, extra-field and mixed refusal output never becomes a transaction', () => {
+  for (const value of [output(''), output('{"transaction":'), output(JSON.stringify({ transaction: { ...transaction, raw: 'private' } })),
+    { status: 'completed', output: [{ type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'refusal' }, { type: 'output_text', text: JSON.stringify(completion) }] }] }]) {
+    assert.throws(() => consumeProviderResponse(value));
+  }
 });

@@ -3,5 +3,10 @@ lib/
 .env
 .env.*
 !.env.example
+!.env.smoke.example
 .secret.*
 *.log
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

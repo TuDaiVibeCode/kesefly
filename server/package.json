@@ -1,0 +1,26 @@
+{
+  "name": "kesefly-server",
+  "version": "1.0.0",
+  "private": true,
+  "main": "lib/server/src/index.js",
+  "engines": { "node": ">=22.19.0 <23" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env lib/server/src/index.js",
+    "dev": "node --env-file-if-exists=.env --import tsx src/index.ts",
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.tools.json",
+    "test": "tsx --test tests/*.test.ts",
+    "smoke": "node --env-file-if-exists=.env.smoke --import tsx scripts/live-smoke.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "jose": "^6.1.0",
+    "openai": "^7.57.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.19.0",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3"
+  }
+}

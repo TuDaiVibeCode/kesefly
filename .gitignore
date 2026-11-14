@@ -45,11 +45,15 @@ ui-debug.log
 service-account*.json
 *-adminsdk-*.json
 artifacts/
-functions/lib/
-functions/.secret.local
-functions/.env.*
-!functions/.env.example
-!functions/.secret.local.example
+server/lib/
+server/data/
+server/.env
+server/.env.*
+!server/.env.example
+!server/.env.smoke.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # typescript
 *.tsbuildinfo

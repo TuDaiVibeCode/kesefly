@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { HttpsError } from 'firebase-functions/v2/https';
+import { ApiError } from './errors';
 import { AI_CONSENT_VERSION, type ParseTransactionRequest } from '../../src/types/ai';
 
 export const MAX_TEXT_LENGTH = 6000;
@@ -15,7 +15,7 @@ function exactKeys(value: Record<string, unknown>, keys: string[]): boolean {
 }
 
 function invalid(): never {
-  throw new HttpsError('invalid-argument', 'Invalid extraction input. Use text up to 6000 characters or a JPEG, PNG, or WebP image up to 2 MiB.');
+  throw new ApiError('AI_INPUT_INVALID');
 }
 
 function matchesImage(bytes: Buffer, mime: string): boolean {
@@ -27,7 +27,7 @@ function matchesImage(bytes: Buffer, mime: string): boolean {
 export function validateRequest(value: unknown, now: number): ParseTransactionRequest {
   if (!record(value) || !exactKeys(value, ['requestId', 'consentVersion', 'text', 'receivedAt', 'image'])) invalid();
   if (typeof value.requestId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(value.requestId)) invalid();
-  if (value.consentVersion !== AI_CONSENT_VERSION) throw new HttpsError('failed-precondition', 'Enable the current cloud AI consent before processing.');
+  if (value.consentVersion !== AI_CONSENT_VERSION) throw new ApiError('AI_CONSENT_REQUIRED');
   if (typeof value.text !== 'string' || value.text.length > MAX_TEXT_LENGTH || /\u0000/.test(value.text)) invalid();
   if (typeof value.receivedAt !== 'number' || !Number.isSafeInteger(value.receivedAt) || value.receivedAt < Date.UTC(2000, 0, 1) || value.receivedAt > now + 5 * 60_000) invalid();
   if (value.image !== null) {
