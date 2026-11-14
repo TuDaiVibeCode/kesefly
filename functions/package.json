@@ -1,0 +1,22 @@
+{
+  "name": "kesefly-functions",
+  "version": "1.0.0",
+  "private": true,
+  "main": "lib/functions/src/index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "tsx --test tests/extraction.test.ts"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0",
+    "openai": "^7.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3"
+  }
+}

@@ -29,7 +29,7 @@ export default function DashboardScreen() {
     </View>
     <Action label="+ Ghi một giao dịch" onPress={() => router.push('/add')} />
     {(reviews > 0 || queue.length > 0) && <Card><Heading small>Chờ bạn kiểm tra</Heading><Copy tone="muted">{reviews} giao dịch cần duyệt · {queue.length} nội dung trong hàng đợi. Chưa tính vào số liệu hay ngân sách.</Copy><Action variant="secondary" label="Mở sổ & hàng đợi" onPress={() => router.push('/transactions')} /></Card>}
-    {!loading && rows.length === 0 && <Empty title="Một trang sổ mới" detail="Chưa có giao dịch đã xác nhận trong tháng này. Ghi thu chi thủ công ngay, không cần tài khoản hay tải mô hình." />}
+    {!loading && rows.length === 0 && <Empty title="Một trang sổ mới" detail="Chưa có giao dịch đã xác nhận trong tháng này. Ghi thu chi thủ công ngay, không cần tài khoản hay kết nối mạng." />}
     <View style={styles.columns}>
       <Card style={styles.column}>
         <Heading small>Chi tiêu theo danh mục</Heading>
@@ -46,7 +46,7 @@ export default function DashboardScreen() {
         <Action variant="secondary" label={budget > 0 ? 'Điều chỉnh ngân sách' : 'Đặt ngân sách'} onPress={() => router.push('/budget')} />
       </Card>
     </View>
-    <Banner>Không đọc SMS. Không gửi nội dung thông báo hoặc ảnh hóa đơn lên đám mây. Bạn quyết định điều gì được ghi vào sổ.</Banner>
+    <Banner>Không đọc SMS. Nhập tay dùng ngoại tuyến, không cần tài khoản. AI chỉ gửi nội dung thô / ảnh qua Firebase đến OpenAI sau khi đăng nhập, đồng ý riêng và xác nhận các mục đã chọn. Bạn duyệt kết quả trước khi ghi vào tổng.</Banner>
   </Screen>;
 }
 const styles = StyleSheet.create({

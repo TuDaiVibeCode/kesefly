@@ -43,6 +43,7 @@ async function put(db: SQLite.SQLiteDatabase, row: Transaction) {
 
 export function saveTransaction(parsed: ParsedTransaction, context: {
   id?: string; source: IngestionSource; sourcePackage?: string | null; status?: 'review' | 'confirmed';
+  assertCanSave?: () => Promise<void>;
 }): Promise<Transaction> {
   return write(async (db) => {
     parsed = validateParsedTransaction(parsed);
@@ -54,6 +55,7 @@ export function saveTransaction(parsed: ParsedTransaction, context: {
       ...parsed, id, source: context.source, sourcePackage: context.sourcePackage ?? null,
       status: context.status ?? 'review', updatedAt: Date.now(), deletedAt: null, syncedAt: null,
     };
+    await context.assertCanSave?.();
     await put(db, row);
     return row;
   });

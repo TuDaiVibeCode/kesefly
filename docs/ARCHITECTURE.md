@@ -1,72 +1,57 @@
 # Kiến trúc và ranh giới riêng tư
 
-## Luồng thật
+## Hai đường cloud khác nhau
 
-```mermaid
-flowchart TD
-  A[Android bank notification] --> B[Native consent + exact package allowlist + noise filter]
-  B --> C[Private native SQLite queue]
-  C -->|app active: import then acknowledge IDs| D[Expo SQLite local queue]
-  E[Paste bank alert / choose receipt image] --> D
-  D --> F[Foreground serial LiteRT-LM inference]
-  F --> G[Constrained JSON + runtime validation]
-  G --> H[Local transaction: review]
-  H -->|user corrects and confirms| I[Local transaction: confirmed]
-  J[Manual transaction form] --> I
-  I -->|signed-in + explicit sync consent + Sync now| K[Per-user Firestore structured DTO]
-```
+Ledger offline dùng SQLite; capture Android ghi native queue trước JS. Người dùng paste/chọn ảnh cũng chỉ thêm queue local. AI **không tự chạy** khi mở app,login,bật consent hoặc notification mới tới.
 
-Không tạo Headless JS runtime để load model khi notification tới. Native listener tồn tại độc lập với React tree và ghi dữ liệu trước; app nhập theo page 200 mục, ack sau khi ghi bền vững. Nếu crash sau save trước ack, ID/repository replay không tạo thêm giao dịch hoặc ghi đè bản người dùng đã sửa. Inference được serialize, mỗi alert dùng conversation riêng; khi app rời foreground thì output đang chạy bị vô hiệu và model được giải phóng theo hàng đợi.
+Chọn queue IDs → xác nhận gửi → perUID AI consent+Firebase Auth → `parseTransaction` callable → validation/quota/idempotency → OpenAI Responses → strict structured output → local Transaction status review. Người dùng sửa/xác nhận mới vào tổng thu chi. Sync confirmed ledger lên Firestore là consent và nút Sync riêng.
 
-## Trạng thái dữ liệu
+Raw text/ảnh của các mục được chọn **rời thiết bị** qua Firebase tới OpenAI. Không mô tả chế độ này là local-only. Backend không chủ động lưu raw/prompt/image trong Firestore,Storage hoặc log; `store:false` không vô hiệu mọi provider retention. Tắt consent/logout bỏ hiệu lực kết quả client nhưng không thu hồi request đã tới server/provider.
 
-- `alert_queue`: raw text hoặc đường dẫn ảnh local, receivedAt, nguồn; raw lỗi inference không được lưu. Thất bại giữ hàng đợi để retry/discard.
-- `transactions`: số tiền nguyên VND dương, hướng thu/chi, merchant, category enum, thời điểm ISO, confidence; AI luôn `review`, manual/được duyệt là `confirmed`.
-- Dashboard/budget chỉ tính `confirmed`. Confidence tự model ước lượng, không phải xác suất đã hiệu chuẩn.
-- `processed_alerts`: ID đã xử lý để chống replay. Không chứa nội dung notification.
-- `settings`: ngân sách, consent đồng bộ, chủ tài khoản cloud đã gắn dữ liệu.
-- Xóa giao dịch là tombstone (`deletedAt`), không xóa vật lý cloud để tránh máy offline khôi phục giao dịch cũ.
+## Domain và storage
 
-## Deduplication
+Nguồn chuẩn `src/types/transaction.ts`,`src/types/ai.ts`,`src/core/ai/validation.ts`. VND nguyên dương<=1e15,type thu/chi,merchant/categories/date/confidence được validate server/client. Validator/schema dùng chung,không eval/repaired arbitrary model output. Confidence không phải xác suất đã hiệu chuẩn,JSON hợp schema không chứng minh facts đúng.
 
-Exact native alert ID được xử lý idempotent. Hai alerts khác nhau có amount/currency/direction trong 5 phút là **ứng viên nghi trùng**, không được tự gộp. UI cảnh báo khi review; người dùng xác nhận hoặc xóa. Cách này tránh bucket 5 phút làm lọt cặp sát ranh giới, đồng thời không mất hai giao dịch cùng số tiền hợp lệ. Cùng giao dịch từ hai thiết bị có ID khác nhau vẫn có thể cần review thủ công.
+- `alert_queue`: raw text hoặc đường dẫn private JPEG/native,dataURLJPEG/web; receivedAt/source/error generic. Raw hết hạn7ngày,xóa sau parse success/discard; prune khi app hoạt động/native alarms,OS có thể trì hoãn xóa vật lý.
+- `transactions`: review/confirmed; dashboard/budget chỉ confirmed chưa xóa. Manual không cần Auth/mạng. Xóa giữ tombstone,không hard-delete cloud gây resurrect từ máy offline.
+- `processed_alerts`: chỉ receiptID+time chống replay sau crash/ack. ExactID idempotent,cùng amount/type±5phút chỉ cảnh báo không auto merge.
+- `settings`: budget local,mỗi UID AI consent version,sync consent,sticky cloud owner. Budget là một limit áp dụng mọi tháng,không per-month/sync.
+- SQLite không SQLCipher,dựa OS sandbox/encryption,backup exclusion. Không bảo đảm secure erase SSD/WAL,root/jailbreak hoặc máy chia sẻ đang mở khóa.
 
-## Firebase
+## Image handling
 
-Đường dẫn duy nhất: `users/{uid}/transactions/{id}`. DTO dùng danh sách field rõ ràng, không spread row local vào write. Không sync `sourcePackage`, raw queue, ảnh, prompt, model output hoặc error. Tuy nhiên **giao dịch đã parse vẫn là dữ liệu tài chính nhạy cảm**, không phải dữ liệu vô danh.
+Picker image normalize JPEG width1024 quality0.8 trước persist,giới hạn2MiB. Native file trong private Documents; web dataURL trong SQLite nên sống qua reload thay vì blobURL tạm. Send selected item mới đọc base64,không gửi external URL/Files upload. Backend kiểm tra canonical base64,size,MIME và magic bytes,không fetch URL do client đưa. Ảnh gốc thư viện người dùng vẫn tồn tại sau khi app xóa bản sao.
 
-Email/password auth persistent, không tự tạo anonymous account. Người dùng bật consent và bấm Sync; không background cloud upload. Sync LWW theo `updatedAt`, page đọc tối đa 100 và giao dịch ghi theo nhóm tuần tự, giữ newer local edits, revision-conditional markSynced. Equal revision server thắng trừ tombstone thắng live. Transaction Firestore và rules từ chối ghi stale. Clock skew giữa thiết bị có thể gây xung đột LWW; đội cần kiểm tra thời gian thiết bị trước demo. Không phải CRDT/strong consistency giữa nhiều máy offline.
+## Server boundary
 
-Một database local gắn với UID cloud đầu tiên. Đăng xuất tắt sync nhưng không xóa dữ liệu local; đăng nhập UID khác không được upload/merge dữ liệu của UID cũ. Khi chuyển tài khoản trên máy dùng chung, cần xóa app data/reinstall để bắt đầu database riêng. Không dùng thiết kế này cho shared-device production trước khi có per-account encrypted databases và UX migration.
+Firebase v2 callable `parseTransaction`,region asia-southeast1,verified AuthUID,secret OPENAI_API_KEY chỉ server. Model fixed allowlist gpt-6-luna,no tools/history/arbitrary model. Responses strict schema,reasoning none,max512output,25s timeout,no SDK retry,storefalse. Null/refusal/incomplete/schema/business error không thành giao dịch sai.
 
-Firestore rules default deny, owner-only, kiểm tra field/type/range, không physical delete. `storage.rules` deny mọi truy cập: model mặc định tải từ artifact public đã pin checksum, không upload receipt. Rules deployment cần Firebase owner của đội.
+Request key hashUID+queueID,payload digest bao input+consent. Transactional reservation trước provider để race request trùng không tính thêm call. `_aiRequests` giữ permanent digest/status tombstones; `_aiResults` chỉ structured result,logical expiry7ngày+optional Firestore TTL. Không đặt TTL lên request tombstones: xóa sẽ cho requestID cũ gọi lại. Pending timeout/failed terminal không auto replay provider vì request có thể đã billed. Cache hết hạn trả lỗi,không chạy lại cùngID.
 
-## Lưu trữ và backup
+Quota100/UID/ngày và1000project/ngày; lifetime reservation500cents,2cents/attempt,không auto refund/reset. Đây là attempt/reservation ceiling không bảo đảm actual OpenAI/Functions/Firestore bill. Budget warning ở vendor không phải hard stop. Metadata requests/rate counters nhạy cảm theo tài khoản,default deny client. TTL là asynchronous,không bảo đảm deletion vật lý chính xác7ngày.
 
-- Native Android queue đặt trong `noBackupFilesDir`; config plugin tắt backup/device transfer của app, listener được bảo vệ bằng system binding permission.
-- iOS helper đặt và kiểm tra cờ excluded-from-backup trên Documents/Application Support trước khi database, ảnh và model được tạo. Helper cần development build; không âm thầm bỏ qua nếu native module thiếu.
-- Ảnh được copy sang private Documents để không mất khi cache picker bị dọn, xóa sau parse/discard. Model cache dùng native ModelRegistry, checksum SHA-256 trước load; OS có thể evict cache.
-- Raw queue logic hết hạn sau 7 ngày; native có expiry alarm và boot reschedule; JS prune khi app chạy/refresh. OS có thể trì hoãn xóa vật lý khi app force-stop/idle. Không cam kết secure erase của SSD, SQLite WAL hoặc screenshot gốc trong thư viện ảnh.
-- SQLite hiện **không mã hóa SQLCipher**. Dựa trên OS sandbox, device encryption và backup exclusion; máy root/jailbreak hoặc unlocked shared device không được bảo vệ đầy đủ. Không log dữ liệu thật. Bản production cần threat model, app lock/encryption và kiểm thử bảo mật riêng.
+## Auth/consent/session fences
 
-## Giới hạn nền tảng
+Existing named Firebase app/Auth persistence được dùng cho callable+sync,không Firebase app thứ hai. AI consent version theo UID,independent sync,capture consent. Generation tăng trên auth transition/revoke,kiểm tra trước request,sau response,trước save trong serialized repository. Pipeline chỉ IDs snapshot người dùng chọn; mới tới không gửi ké. UI cấm discard/change selection khi processing; row còn tồn tại và session guard chặn stale results.
 
-Android permission listener do người dùng cấp trong Settings sau disclosure. Không xin READ_SMS, không bắt toàn bộ notification để gửi cloud. Không đảm bảo listener qua force-stop/revoke/OEM background kill. Battery Settings chỉ hướng dẫn người dùng, không tự ép exemption.
+Một DB local gắn UID cloud đầu tiên. Logout revokes AI/sync nhưng vẫn giữ local ledger và capture; không per-account encryptedDB. UID khác không được gửi local data qua AI/sync. Sticky-owner không bảo vệ người khác xem local khi máy đã mở khóa; UI phải cảnh báo. Account-deletion/reset UX và data export cần scope riêng,không xóa pending trong im lặng.
 
-iOS không đọc notification app khác. Đường hiện có là nhập văn bản thủ công/chọn ảnh local. Không cài email forwarding/IMAP/webhook hoặc Shortcuts App Intent/share extension: các đường đó là lựa chọn kiến trúc khác, không được quảng cáo như đã có trong app. Raw qua HTTP webhook không còn local-only.
+## Firestore ledger sync
 
-Web chạy SQLite thực, nhập/sửa/xóa, review/budget/auth/sync; không LiteRT hoặc Android capture. SQLite WASM cần COOP/COEP headers, cấu hình Metro và hosting đã có.
+Path `users/{uid}/transactions/{id}`; explicit DTO chọn fields,không sourcePackage,syncedAt,raw/ảnh/prompt/errors. Confirmed+tombstone only,LWWupdatedAt client,conditional ackrevision,equalserverwins trừ tombstone,server transaction+rules chặn stale. Clockskew vẫn có thể gây conflict. Không CRDT,realtime/autosync hoặc sync budget. Query paginated server-only100records tránh cache account cũ; next sync bắt insert sau cursor.
 
-## Model
+Rules defaultdeny,owner/schema/ranges/calendar validation,denyphysicaldelete. `_ai*` collections chỉ AdminSDK; storage.rules denyall. Admin Firebase/OpenAI vẫn có thể xử lý structured financial fields nên không gọi là anonymous/E2E encrypted.
 
-`Gemma 4 E2B IT`, artifact 2,588,147,712 bytes (~2.59 GB decimal), pinned revision và SHA-256 trong `src/core/ai/engine.ts`. Tải có user action/progress/resume; không weights trong Git/APK. URL/hash override phải cùng có giá trị, HTTPS/hash hợp lệ; đội tự xác minh license và modality của artifact thay thế. Không truyền HF token qua biến EXPO_PUBLIC.
+## Native và platform
 
-LiteRT-LM binding `react-native-litert-lm@0.8.2` dùng Nitro, built-in available-memory preflight, không force-load. Context 4096, vision budget560; máy ít RAM vẫn có thể từ chối load dù tổng RAM >=4 GB. GPU/NPU không được đảm bảo trên mọi chipset; runtime chọn backend hỗ trợ bundle. App không tự gửi input lên cloud nếu load thất bại; nhập thủ công là đường dùng được.
+Android listener cần explicit consent+exact package trước đọc/lưu,separate notification access trong Settings. Native queue noBackupFilesDir,app backup disabled,listener protected BIND_NOTIFICATION_LISTENER_SERVICE,không READ_SMS/AccessibilityService. JS import persisted trước ack; inference cloud chỉ foreground explicituseraction. Không đảm bảo force-stop/revoke/OEMkilled/event OS chưa giao.
 
-Schema-constrained JSON không bảo đảm nội dung đúng, không loại hết prompt injection. Prompt coi input là untrusted, validator chặn unknown keys/amount/currency/date/category sai; con người review trước khi tính tổng/sync.
+iOS không intercept notificationappkhác. Manual/text/ảnh có thể dùng,Swifthelper exclude Documents/ApplicationSupport backup failclosed trước privateDB. Web không capture nhưng có fullAIcallable,text/ảnhqueue/manual ledger. Không còn model/nativeinference,GPU/ARM64 restriction hoặc entitlement virtualaddressing. Native module capture/backup vẫn cần developmentbuild.
 
-Nguồn: [Expo SDK58](https://docs.expo.dev/versions/v58.0.0/), [local modules](https://docs.expo.dev/modules/get-started/), [LiteRT binding0.8.2](https://github.com/hung-yueh/react-native-litert-lm/tree/v0.8.2), [artifact/hash](https://huggingface.co/api/models/litert-community/gemma-4-E2B-it-litert-lm?blobs=true), [Android listener](https://developer.android.com/reference/android/service/notification/NotificationListenerService).
+Web SQLite cần COOPsame-origin/COEPcredentialless trong Metro **và hosting**. Appoutputsingle+FirebaseHosting SPArewrite phục vụ routetransaction dynamic; productionexport/deploy/directreload cần test riêng.
 
-## Play policy không đồng nghĩa với SMS/Accessibility declaration
+## Verification và production limits
 
-Notification listener ở đây dùng binding permission của hệ thống, không READ_SMS và không AccessibilityService. Không suy ra rằng mọi listener đều có cùng yêu cầu video/declaration như Accessibility API. [Policy Sensitive Permissions hiện hành](https://support.google.com/googleplay/android-developer/answer/16558241) yêu cầu mục đích cốt lõi, tối thiểu hóa dữ liệu, disclosure/consent và tuân thủ User Data; việc Play Console yêu cầu bổ sung phụ thuộc API và phiên bản policy. Đội phải kiểm tra Console thực tế trước khi publish. Disclosure trong app không thay thế privacy policy công khai.
+`docs/VERIFICATION.md` ghi bằng chứng đã chạy. Không key/projectcredentials ⇒ không claim liveOpenAI/deploypass. CI tests không thay thế notificationdevice/liveprovider smoke. Chưa AppCheck enforcement,mãhóalocal/accountdeletion/securityproduction certification. Public deployment cần privacy policy,abusecontrols,projectbillingreview và Play/Applepolicy hiện hành; notificationlistener không mặc nhiên có cùng video/declaration rules như AccessibilityAPI.
+
+Nguồn: [Firebase callable](https://firebase.google.com/docs/functions/callable),[secrets](https://firebase.google.com/docs/functions/config-env),[OpenAI schema](https://developers.openai.com/api/docs/guides/structured-outputs),[vision](https://developers.openai.com/api/docs/guides/images-vision),[model](https://developers.openai.com/api/docs/models/gpt-6-luna),[Android listener](https://developer.android.com/reference/android/service/notification/NotificationListenerService).

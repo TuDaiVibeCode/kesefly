@@ -1,6 +1,7 @@
-import { FirebaseError, getApps, initializeApp, type FirebaseOptions } from 'firebase/app';
+import { FirebaseError, getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
 import {
   beforeAuthStateChanged,
+  connectAuthEmulator,
   createUserWithEmailAndPassword,
   getAuth,
   initializeAuth,
@@ -11,6 +12,7 @@ import {
 } from 'firebase/auth';
 import {
   collection,
+  connectFirestoreEmulator,
   doc,
   documentId,
   getDocsFromServer,
@@ -25,6 +27,8 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
+import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
+import { AI_CONSENT_VERSION } from '../../types/ai';
 import {
   claimSyncOwner,
   getSetting,
@@ -53,8 +57,35 @@ const options: FirebaseOptions = {
 const APP_NAME = 'kesefly';
 const WRITE_BATCH_SIZE = 25;
 const READ_PAGE_SIZE = 100;
-let services: { auth: Auth; db: Firestore } | null = null;
+let services: { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions } | null = null;
 let authGeneration = 0;
+let authTransitions = 0;
+const revokedAIConsent = new Set<string>();
+
+export interface FirebaseAISession { uid: string; generation: number }
+
+function emulatorEndpoint(value: string | undefined, port: number): { host: string; port: number } {
+  const match = /^(localhost|127\.0\.0\.1|\[::1\]):([0-9]{1,5})$/.exec(value ?? `127.0.0.1:${port}`);
+  if (!match || Number(match[2]) < 1 || Number(match[2]) > 65535) throw new Error('AI_CONFIGURATION');
+  return { host: match[1] === '[::1]' ? '::1' : match[1], port: Number(match[2]) };
+}
+
+function cloudConfiguration() {
+  const region = process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_REGION ?? 'asia-southeast1';
+  // getFunctions also accepts arbitrary domains. Only permit a Firebase region here.
+  if (!/^[a-z]+-[a-z]+\d$/.test(region)) throw new Error('AI_CONFIGURATION');
+  const emulators = process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? {
+    auth: emulatorEndpoint(process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST, 9099),
+    firestore: emulatorEndpoint(process.env.EXPO_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST, 8080),
+    functions: emulatorEndpoint(process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_HOST, 5001),
+  } : null;
+  return { region, emulators };
+}
+
+export function isCloudAIConfigured(): boolean {
+  if (!isFirebaseConfigured()) return false;
+  try { cloudConfiguration(); return true; } catch { return false; }
+}
 let activeSync: Promise<{ pushed: number; pulled: number }> | null = null;
 
 export function isFirebaseConfigured(): boolean {
@@ -62,11 +93,14 @@ export function isFirebaseConfigured(): boolean {
     .every((value) => typeof value === 'string' && value.trim().length > 0);
 }
 
-function getServices(): { auth: Auth; db: Firestore } {
+function getServices(): { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions } {
   if (!isFirebaseConfigured()) {
     throw new Error('Cloud is not configured. Your data stays on this device.');
   }
   if (!services) {
+    // Validate every endpoint before initializing anything; invalid emulator configuration
+    // must never silently use a production service.
+    const { region, emulators } = cloudConfiguration();
     const app = getApps().find((candidate) => candidate.name === APP_NAME) ?? initializeApp(options, APP_NAME);
     let auth: Auth;
     try {
@@ -77,10 +111,90 @@ function getServices(): { auth: Auth; db: Firestore } {
       if (!(error instanceof FirebaseError) || error.code !== 'auth/already-initialized') throw error;
       auth = getAuth(app);
     }
+    if (emulators && !auth.emulatorConfig) {
+      const { host, port } = emulators.auth;
+      connectAuthEmulator(auth, `http://${host === '::1' ? '[::1]' : host}:${port}`, { disableWarnings: true });
+    }
     beforeAuthStateChanged(auth, () => { authGeneration += 1; });
-    services = { auth, db: getFirestore(app) };
+    const db = getFirestore(app);
+    const functions = getFunctions(app, region);
+    if (emulators) {
+      connectFirestoreEmulator(db, emulators.firestore.host, emulators.firestore.port);
+      connectFunctionsEmulator(functions, emulators.functions.host, emulators.functions.port);
+    }
+    services = { app, auth, db, functions };
   }
   return services;
+}
+
+/** The callable shares the named app and persisted Auth used by cloud sync. */
+export function getFirebaseAIServices(): { auth: Auth; functions: Functions } {
+  const { auth, functions } = getServices();
+  return { auth, functions };
+}
+
+function assertSession(session: FirebaseAISession): void {
+  if (authTransitions || authGeneration !== session.generation || getServices().auth.currentUser?.uid !== session.uid) {
+    throw new Error('AI_SESSION_CHANGED');
+  }
+}
+
+export async function getFirebaseAISession(): Promise<FirebaseAISession> {
+  const { auth } = getServices();
+  await auth.authStateReady();
+  if (authTransitions) throw new Error('AI_SESSION_CHANGED');
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('AI_AUTH_REQUIRED');
+  return { uid, generation: authGeneration };
+}
+
+export async function assertFirebaseAISession(session: FirebaseAISession): Promise<void> {
+  assertSession(session);
+  if (revokedAIConsent.has(session.uid)) throw new Error('AI_CONSENT_REQUIRED');
+  const consent = await getSetting(`aiConsent:${session.uid}`);
+  assertSession(session);
+  if (consent !== AI_CONSENT_VERSION || revokedAIConsent.has(session.uid)) throw new Error('AI_CONSENT_REQUIRED');
+  const owner = await getSetting('syncOwner');
+  assertSession(session);
+  if (owner !== session.uid) throw new Error('AI_OWNER_MISMATCH');
+}
+
+export async function readCloudAIConsent(): Promise<boolean> {
+  if (!isCloudAIConfigured()) return false;
+  const { auth } = getServices();
+  await auth.authStateReady();
+  if (!auth.currentUser || authTransitions) return false;
+  try {
+    await assertFirebaseAISession({ uid: auth.currentUser.uid, generation: authGeneration });
+    return true;
+  } catch (error) {
+    if (error instanceof Error && ['AI_SESSION_CHANGED', 'AI_CONSENT_REQUIRED', 'AI_OWNER_MISMATCH'].includes(error.message)) return false;
+    throw error;
+  }
+}
+
+export async function writeCloudAIConsent(enabled: boolean): Promise<void> {
+  // Invalidate immediately, before any database/auth wait, including same-account revocation.
+  if (!enabled) {
+    authGeneration += 1;
+    const currentUID = services?.auth.currentUser?.uid;
+    if (currentUID) revokedAIConsent.add(currentUID);
+    if (!isFirebaseConfigured()) return;
+    const { auth } = getServices();
+    await auth.authStateReady();
+    if (authTransitions) throw new Error('AI_SESSION_CHANGED');
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    revokedAIConsent.add(uid);
+    await setSetting(`aiConsent:${uid}`, 'false');
+    return;
+  }
+  const session = await getFirebaseAISession();
+  try { await claimSyncOwner(session.uid); } catch { throw new Error('AI_OWNER_MISMATCH'); }
+  assertSession(session);
+  await setSetting(`aiConsent:${session.uid}`, AI_CONSENT_VERSION);
+  assertSession(session);
+  revokedAIConsent.delete(session.uid);
 }
 
 export function subscribeAuth(listener: (user: { uid: string; email: string | null } | null) => void): () => void {
@@ -103,22 +217,40 @@ export function subscribeAuth(listener: (user: { uid: string; email: string | nu
 export async function signIn(email: string, password: string): Promise<void> {
   const { auth } = getServices();
   authGeneration += 1;
-  await signInWithEmailAndPassword(auth, email.trim(), password);
+  authTransitions += 1;
+  try { await signInWithEmailAndPassword(auth, email.trim(), password); }
+  finally { authTransitions -= 1; }
 }
 
 export async function signUp(email: string, password: string): Promise<void> {
   const { auth } = getServices();
   authGeneration += 1;
-  await createUserWithEmailAndPassword(auth, email.trim(), password);
+  authTransitions += 1;
+  try { await createUserWithEmailAndPassword(auth, email.trim(), password); }
+  finally { authTransitions -= 1; }
 }
 
 export async function signOut(): Promise<void> {
   authGeneration += 1;
-  // A subsequent session must explicitly opt in again, even when it is the same account.
+  authTransitions += 1;
   try {
-    await setSetting('cloudSync', 'false');
+    const auth = isFirebaseConfigured() ? getServices().auth : null;
+    if (auth) await auth.authStateReady();
+    const uid = auth?.currentUser?.uid;
+    if (uid) revokedAIConsent.add(uid);
+    // Revoke both independently, so a failed settings write cannot skip the other.
+    try {
+      const results = await Promise.allSettled([
+        setSetting('cloudSync', 'false'),
+        ...(uid ? [setSetting(`aiConsent:${uid}`, 'false')] : []),
+      ]);
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
+    } finally {
+      if (auth) await firebaseSignOut(auth);
+    }
   } finally {
-    if (isFirebaseConfigured()) await firebaseSignOut(getServices().auth);
+    authTransitions -= 1;
   }
 }
 

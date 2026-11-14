@@ -1,18 +1,30 @@
 import { Directory, File, Paths } from 'expo-file-system';
+import { ImageManipulator, SaveFormat, type ImageRef } from 'expo-image-manipulator';
 
-const directory = () => new Directory(Paths.document, 'private-receipts');
 export async function persistReceipt(uri: string, id: string): Promise<string> {
-  const target = directory();
+  const target = new Directory(Paths.document, 'private-receipts');
   target.create({ idempotent: true, intermediates: true });
-  const extension = uri.split('?')[0].match(/\.(jpe?g|png|webp|heic|avif)$/i)?.[0] ?? '.jpg';
-  const file = new File(target, id + extension);
-  const source = new File(uri);
-  if (!source.exists) throw new Error('Không tìm thấy ảnh. Vui lòng chọn lại.');
-  await source.copy(file);
-  return file.uri;
+  const context = ImageManipulator.manipulate(uri);
+  let rendered: ImageRef | null = null;
+  let temporary: File | null = null;
+  try {
+    context.resize({ width: 1024 });
+    rendered = await context.renderAsync();
+    const normalized = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+    temporary = new File(normalized.uri);
+    if (!temporary.exists || temporary.size > 2 * 1024 * 1024) throw new Error('Ảnh vượt giới hạn 2 MB sau tối ưu. Hãy chọn ảnh nhỏ hơn.');
+    const file = new File(target, `${id}.jpg`);
+    await temporary.copy(file);
+    return file.uri;
+  } finally {
+    if (temporary?.exists) temporary.delete();
+    rendered?.release();
+    context.release();
+  }
 }
+
 export async function deleteReceipt(uri: string | null): Promise<void> {
   if (!uri) return;
   const file = new File(uri);
-  if (file.exists) await file.delete();
+  if (file.exists) file.delete();
 }

@@ -34,7 +34,7 @@ export function TransactionForm({ existing, onSaved }: { existing?: Transaction;
     if (await save(value, existing)) onSaved();
   }
   return <Card>
-    {existing?.status === 'review' && <Banner>AI có thể đọc sai. Kiểm tra từng trường bên dưới trước khi đưa vào tổng thu chi. Độ tin cậy mô hình: {Math.round(existing.confidence * 100)}%.</Banner>}
+    {existing?.status === 'review' && <Banner>OpenAI có thể đọc sai. Kiểm tra từng trường bên dưới trước khi xác nhận đưa vào tổng thu chi. Độ tin cậy do AI báo cáo: {Math.round(existing.confidence * 100)}%.</Banner>}
     {candidates.length > 0 && <Banner>Có {candidates.length} giao dịch gần nhau trong 5 phút, cùng số tiền và chiều thu/chi: {candidates.slice(0, 3).map((row) => `${row.merchant} (${money(row.amount)})`).join('; ')}. Đây chỉ là gợi ý trùng, không bị xóa tự động. Nếu cùng một giao dịch, quay lại và xóa một bản; nếu khác nhau, xác nhận bình thường.</Banner>}
     <Row><Choice label="Khoản chi" selected={type === 'EXPENSE'} onPress={() => { setType('EXPENSE'); setReviewed(false); }} /><Choice label="Khoản thu" selected={type === 'INCOME'} onPress={() => { setType('INCOME'); setReviewed(false); }} /></Row>
     <Field label="Số tiền (VND)" value={amount} keyboardType="number-pad" inputMode="numeric" onChangeText={(v) => { setAmount(v); setReviewed(false); }} placeholder="0" help="Chỉ nhập số nguyên đồng, ví dụ 50000." />

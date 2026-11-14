@@ -1,17 +1,10 @@
 # Làm việc cùng đội
 
-## Chia phần việc theo module
+## Chia phần việc cho4người
 
-| Phần | Thư mục sở hữu | Interface chính |
-| --- | --- | --- |
-| UI/dashboard/ngân sách | `src/features`, `src/shared`, route wrappers `src/app` | `useFinance()` |
-| Capture Android | `modules/bank-notifications`, `plugins` | `nativeCapture.ts` |
-| Ingestion/offline | `src/core/ingestion`, `src/core/database` | `ingestText`, `ingestImage`, `processQueue`, repository |
-| Local AI | `src/core/ai` | `prepareModel`, `parseAlert`, `unloadModel` |
-| Auth/sync | `src/core/firebase`, `firestore.rules` | `syncTransactions`, cloud DTO |
-| Shared contract | `src/types/transaction.ts` | `ParsedTransaction`, `Transaction`, `QueuedAlert` |
+**Bảng ownership và prompt giao việc duy nhất nằm trong [PLAN.md](../PLAN.md),mục2/4/8.** Vai trò1 native/APK,2OpenAI backend/parser,3data/Auth/sync/client/deploy,4UI/integration. Không sao chép bảng thứ hai lệch owner.
 
-Mỗi PR chỉ nên đổi một luồng có thể chạy được. Khi đổi shared contract, cập nhật caller, validator, Firestore DTO/rules và test cùng PR. Không đẩy `android/`, `ios/` đã generate; sửa config plugin/local Expo module rồi rebuild.
+Giữ SQLite/Expo58/code sẵn có. Mỗi owner sửa đúng vùng,PR nhỏ,contract delta thống nhất trước. Root package/lockfile người4; Functions package/lockfile người2; Settings người4; FinanceProvider người3. Native root android/ios được generate,sửa configplugin/module rồi rebuild.
 
 ## GitHub
 
@@ -22,15 +15,16 @@ Mỗi PR chỉ nên đổi một luồng có thể chạy được. Khi đổi s
 5. Commit code + `package-lock.json` nếu đổi dependencies. Không commit `.env`, service account, model weights hoặc notification/receipt thật.
 6. Mở PR vào `main`, ghi thay đổi, cách test và giới hạn thiết bị. Bật required status `check` trong branch protection khi cả đội đã được cấp quyền.
 
-CI `.github/workflows/checks.yml` chạy lint, TypeScript và tests logic. CI không chứng minh được notification capture/GPU/native build chạy trên mọi điện thoại.
+CI `.github/workflows/checks.yml` chạy app lint/TypeScript/tests và backend build/tests. CI không chứng minh được notification capture hoặc OpenAI live/account billing.
+
+Functions checks: `npm ci --prefix functions`, `npm run functions:build`, `npm run functions:test`. Không đưa server OPENAI_API_KEY vào EXPO_PUBLIC hay share service-account. Dùng Secret Manager/CLI login từng người,không copy key vào PR.
 
 ## Quy tắc dữ liệu
 
 - Dùng chuỗi tổng hợp khi thảo luận PR; không dán SMS thật, số tài khoản, ảnh hóa đơn vào issue/log.
 - Không thêm analytics/crash breadcrumbs chứa input, prompt, ảnh hoặc native error echo.
-- Không tự fallback cloud. Không dùng HTTP webhook cho raw notification rồi vẫn gọi luồng đó là local-only.
-- UI tổng hợp chi tiêu chỉ tính `status === 'confirmed'`; review phải cho người dùng sửa/xóa/xác nhận.
-- Không thay model bằng parser regex rồi gắn nhãn AI. Regex chỉ lọc noise.
+- AI qua Firebase→OpenAI chỉ sau Auth+AI consent+chọn mục+xác nhận gửi. Consent capture và sync riêng. Không nói raw luôn local khi người dùng đã gửi AI.
+- UI totals chỉ confirmed; review cho sửa/xóa/xác nhận. Offline chỉ manual/ledger/queue,không có AI offline hoặc regex giả inference.
 - Android capture không đảm bảo qua force-stop, revoke permission hoặc mọi OEM battery policy. Không quảng cáo như vậy.
 
 ## Dependencies và build

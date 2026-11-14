@@ -1,4 +1,23 @@
 {
+  "functions": [{
+    "source": "functions",
+    "codebase": "default",
+    "runtime": "nodejs22",
+    "ignore": ["node_modules", ".git", "*.log", ".env*", ".secret*", "src", "tests", "tsconfig.json"],
+    "predeploy": ["npm --prefix functions run build"]
+  }],
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }],
+    "headers": [{
+      "source": "**",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" }
+      ]
+    }]
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -9,6 +28,7 @@
   "emulators": {
     "auth": { "port": 9099 },
     "firestore": { "port": 8080 },
+    "functions": { "port": 5001 },
     "ui": { "enabled": true },
     "singleProjectMode": true
   }

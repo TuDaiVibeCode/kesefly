@@ -10,7 +10,7 @@ const tabs = [
   { href: '/add', label: 'Thêm mới' }, { href: '/budget', label: 'Ngân sách' }, { href: '/settings', label: 'Cài đặt' },
 ] as const;
 function Shell() {
-  const t = useTokens(); const path = usePathname(); const { transactions, cloudSync } = useFinance();
+  const t = useTokens(); const path = usePathname(); const { transactions, cloudSync, aiConsent } = useFinance();
   const reviews = transactions.filter((row) => row.status === 'review').length;
   return <SafeAreaView style={[styles.root, { backgroundColor: t.background }]}>
     <View style={[styles.masthead, { borderColor: t.border, backgroundColor: t.surface }]}>
@@ -18,7 +18,8 @@ function Shell() {
         <View style={styles.brandRow}><View style={[styles.brandMark, { backgroundColor: t.primary }]}><Text style={[styles.brandInitial, { color: t.onPrimary }]}>k.</Text></View>
           <Text style={[styles.brand, { color: t.text }]}>kesefly<Text style={{ color: t.primary }}> / </Text><Text style={styles.brandSuffix}>sổ tiền riêng</Text></Text>
         </View>
-        <Copy tone="positive" style={styles.private}>{cloudSync ? 'Đồng bộ do bạn kiểm soát' : 'Lưu riêng trên máy'}</Copy>
+        <Copy tone="positive" style={styles.private}>{aiConsent ? 'AI đám mây · gửi do bạn chọn' : cloudSync ? 'Đồng bộ do bạn kiểm soát' : 'Sổ lưu trên máy · AI chưa bật'}</Copy>
+        {process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' && <Copy tone="warning" style={styles.private}>Môi trường emulator · không dùng dữ liệu thật</Copy>}
       </View>
     </View>
     <View style={styles.body}><Slot /></View>

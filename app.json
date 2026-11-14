@@ -9,7 +9,6 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.kesefly.app",
-      "entitlements": { "com.apple.developer.kernel.extended-virtual-addressing": true },
       "icon": "./assets/expo.icon"
     },
     "android": {
@@ -23,14 +22,13 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       ["expo-router", { "headers": { "Cross-Origin-Embedder-Policy": "credentialless", "Cross-Origin-Opener-Policy": "same-origin" } }],
-      "react-native-litert-lm",
       "./plugins/with-bank-notifications",
-      ["expo-image-picker", { "photosPermission": "Chọn ảnh giao dịch để phân tích riêng trên thiết bị.", "cameraPermission": false, "microphonePermission": false }],
+      ["expo-image-picker", { "photosPermission": "Chọn ảnh giao dịch để gửi phân tích qua Firebase tới OpenAI khi bạn đồng ý.", "cameraPermission": false, "microphonePermission": false }],
       [
         "expo-splash-screen",
         {

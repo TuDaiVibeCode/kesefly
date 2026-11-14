@@ -45,6 +45,11 @@ ui-debug.log
 service-account*.json
 *-adminsdk-*.json
 artifacts/
+functions/lib/
+functions/.secret.local
+functions/.env.*
+!functions/.env.example
+!functions/.secret.local.example
 
 # typescript
 *.tsbuildinfo

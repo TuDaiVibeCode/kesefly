@@ -32,20 +32,25 @@ export function validateParsedTransaction(value: unknown): ParsedTransaction {
   if (typeof row.confidence !== 'number' || !Number.isFinite(row.confidence) || row.confidence < 0 || row.confidence > 1) throw new Error('Invalid model confidence.');
   return { amount: row.amount, currency: 'VND', type: row.type, merchant: row.merchant, category: row.category as ParsedTransaction['category'], date: new Date(row.date).toISOString(), confidence: row.confidence };
 }
-export const EXTRACTION_SCHEMA = JSON.stringify({
-  anyOf: [
-    { type: 'null' },
-    {
-      type: 'object', additionalProperties: false, required: KEYS,
-      properties: {
-        amount: { type: 'integer', minimum: 1, maximum: 1e15 },
-        currency: { type: 'string', enum: ['VND'] },
-        type: { type: 'string', enum: ['EXPENSE', 'INCOME'] },
-        category: { type: 'string', enum: [...CATEGORIES] },
-        date: { type: 'string' },
-        merchant: { type: 'string', minLength: 1, maxLength: 160 },
-        confidence: { type: 'number', minimum: 0, maximum: 1 },
-      },
+export const EXTRACTION_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['transaction'],
+  properties: {
+    transaction: {
+      anyOf: [
+        { type: 'null' },
+        {
+          type: 'object', additionalProperties: false, required: KEYS,
+          properties: {
+            amount: { type: 'integer', minimum: 1, maximum: 1e15 },
+            currency: { type: 'string', enum: ['VND'] },
+            type: { type: 'string', enum: ['EXPENSE', 'INCOME'] },
+            category: { type: 'string', enum: [...CATEGORIES] },
+            date: { type: 'string' },
+            merchant: { type: 'string', minLength: 1, maxLength: 160 },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
+          },
+        },
+      ],
     },
-  ],
-});
+  },
+} as const;

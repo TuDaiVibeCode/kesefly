@@ -1,7 +1,7 @@
 import { AppState, Platform } from 'react-native';
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from 'expo-crypto';
 
-import { getModelState, parseAlert } from '@/core/ai/engine';
+import { assertAISession, getAIConsent, parseCloudAlert } from '@/core/ai/client';
 import {
   enqueueAlert, listQueuedAlerts, removeQueuedAlert, saveTransaction, setQueueError,
 } from '@/core/database/repository';
@@ -73,22 +73,36 @@ export async function discardCapturedAlerts(): Promise<void> {
   for (const row of await listQueuedAlerts()) if (row.source === 'notification') await discardAlert(row.id);
 }
 
-export function processQueue(): Promise<{ processed: number; failed: number }> {
+export function processQueue(ids: readonly string[]): Promise<{ processed: number; failed: number }> {
   if (processing) return processing;
+  const selected = new Set(ids);
   processing = (async () => {
     await purgeExpiredAlerts();
-    if (getModelState().phase !== 'ready') throw new Error('Hãy tải và mở model local trong Cài đặt trước khi phân tích.');
+    if (!await getAIConsent()) throw new Error('Đăng nhập và bật cho phép phân tích OpenAI trước khi gửi.');
     let processed = 0, failed = 0;
-    for (const alert of await listQueuedAlerts()) {
-      if ((Platform.OS !== 'web' && AppState.currentState !== 'active') || getModelState().phase !== 'ready') break;
+    for (const alert of (await listQueuedAlerts()).filter((row) => selected.has(row.id))) {
+      if (Platform.OS !== 'web' && AppState.currentState !== 'active') break;
+      if (!await getAIConsent()) break;
       try {
-        const parsed = await parseAlert(alert);
-        await saveTransaction(parsed, { id: alert.id, source: alert.source, sourcePackage: alert.sourcePackage, status: 'review' });
+        const result = await parseCloudAlert(alert);
+        await assertAISession(result.session);
+        // A user may discard or revoke capture while the network request is in flight.
+        if (!(await listQueuedAlerts()).some((row) => row.id === alert.id)) continue;
+        if (result.transaction === null) {
+          await setQueueError(alert.id, 'Không tìm thấy một giao dịch VND rõ ràng. Hãy nhập thủ công hoặc xóa mục này.');
+          failed++;
+          continue;
+        }
+        await assertAISession(result.session);
+        await saveTransaction(result.transaction, {
+          id: alert.id, source: alert.source, sourcePackage: alert.sourcePackage, status: 'review',
+          assertCanSave: () => assertAISession(result.session),
+        });
         await discardAlert(alert.id);
         processed++;
       } catch {
-        // Never persist native/model errors: they may echo financial input or extracted values.
-        await setQueueError(alert.id, 'Chưa phân tích được. Kiểm tra model, thử lại hoặc nhập giao dịch thủ công.');
+        // SDK errors may contain financial input; persist only a fixed safe message.
+        await setQueueError(alert.id, 'Chưa phân tích được. Kiểm tra mạng, đăng nhập và quyền AI. Nếu máy chủ đã ghi nhận yêu cầu, gửi lại cùng mục không gọi OpenAI thêm lần nữa.');
         failed++;
       }
     }

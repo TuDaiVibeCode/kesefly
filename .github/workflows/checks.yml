@@ -15,6 +15,7 @@ jobs:
           node-version: '22.19.0'
           cache: npm
       - run: npm ci
-        env:
-          SKIP_IOS_FRAMEWORK_DOWNLOAD: '1'
       - run: npm run check
+      - run: npm ci --prefix functions
+      - run: npm run build --prefix functions
+      - run: npm test --prefix functions

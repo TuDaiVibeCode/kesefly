@@ -32,9 +32,9 @@ export function Field({ label, help, style, ...props }: TextInputProps & { label
     {help && <Copy tone="muted" style={styles.small}>{help}</Copy>}
   </View>;
 }
-export function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const t = useTokens(); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress}
-    style={({ pressed }) => [styles.choice, { borderColor: selected ? t.primary : t.border, backgroundColor: selected ? t.primarySoft : t.surface, opacity: pressed ? 0.7 : 1 }]}>
+export function Choice({ label, selected, onPress, disabled = false }: { label: string; selected: boolean; onPress: () => void; disabled?: boolean }) {
+  const t = useTokens(); return <Pressable accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress}
+    style={({ pressed }) => [styles.choice, { borderColor: selected ? t.primary : t.border, backgroundColor: selected ? t.primarySoft : t.surface, opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
     <Copy tone={selected ? 'primary' : 'muted'} style={styles.label}>{label}</Copy>
   </Pressable>;
 }
@@ -47,7 +47,7 @@ export function Feedback() {
   const { error, notice, dismissError, loading, processing } = useFinance();
   return <>
     {loading && <Row><ActivityIndicator /><Copy tone="muted">Đang mở sổ…</Copy></Row>}
-    {processing && <Copy tone="primary">Đang phân tích riêng trên thiết bị…</Copy>}
+    {processing && <Copy tone="primary">Đang gửi các mục đã chọn qua Firebase đến OpenAI. Không thể rút lại yêu cầu đã gửi; kết quả vẫn cần bạn duyệt.</Copy>}
     {(error || notice) && <View style={styles.feedback}><Banner danger={!!error}>{error || notice}</Banner><Action compact variant="secondary" label="Đóng thông báo" onPress={dismissError} /></View>}
   </>;
 }
