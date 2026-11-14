@@ -1,15 +1,15 @@
-import { httpsCallable } from 'firebase/functions';
-import { AI_CONSENT_VERSION, type ParseTransactionRequest, type ParseTransactionResponse } from '../../types/ai';
+import { AI_CONSENT_VERSION, type ParseTransactionRequest } from '../../types/ai';
 import type { ParsedTransaction, QueuedAlert } from '../../types/transaction';
 import {
   assertFirebaseAISession,
-  getFirebaseAIServices,
+  getFirebaseAIAuth,
   getFirebaseAISession,
   isCloudAIConfigured,
   readCloudAIConsent,
   writeCloudAIConsent,
   type FirebaseAISession,
 } from '../firebase/cloud';
+import { getAIEndpoint } from './endpoint';
 import { buildImagePayload } from './imagePayload';
 import { validateParsedTransaction } from './validation';
 
@@ -18,7 +18,7 @@ export type AISession = FirebaseAISession;
 const ERROR_MESSAGES = {
   AI_CONFIGURATION: 'Chưa cấu hình dịch vụ AI. Bạn vẫn có thể nhập và lưu giao dịch thủ công.',
   AI_AUTH_REQUIRED: 'Đăng nhập trước khi gửi dữ liệu cho AI.',
-  AI_CONSENT_REQUIRED: 'Hãy cho phép gửi dữ liệu đến Firebase và OpenAI trong Cài đặt trước khi dùng AI.',
+  AI_CONSENT_REQUIRED: 'Hãy cho phép gửi dữ liệu qua máy chủ Express của nhóm phát triển đến OpenAI trong Cài đặt trước khi dùng AI.',
   AI_SESSION_CHANGED: 'Tài khoản hoặc quyền AI đã thay đổi. Đã bỏ kết quả; dữ liệu vẫn ở hàng đợi.',
   AI_OWNER_MISMATCH: 'Dữ liệu trên thiết bị thuộc tài khoản khác. Hãy đăng nhập tài khoản ban đầu.',
   AI_INPUT_INVALID: 'Nội dung phải có văn bản tối đa 6.000 ký tự hoặc ảnh hóa đơn hợp lệ.',
@@ -46,9 +46,10 @@ export class AIClientError extends Error {
   }
 }
 
-const BACKEND_CODES: Partial<Record<AIErrorCode, true>> = {
-  REQUEST_PENDING: true, REQUEST_EXPIRED: true, REQUEST_ID_CONFLICT: true,
-  REQUEST_FAILED: true, QUOTA_EXCEEDED: true, AI_UNAVAILABLE: true,
+const BACKEND_STATUS: Partial<Record<AIErrorCode, number>> = {
+  AI_AUTH_REQUIRED: 401, AI_CONSENT_REQUIRED: 403, AI_INPUT_INVALID: 400,
+  AI_UNAVAILABLE: 503, REQUEST_PENDING: 409, REQUEST_ID_CONFLICT: 409,
+  REQUEST_FAILED: 502, REQUEST_EXPIRED: 410, QUOTA_EXCEEDED: 429,
 };
 
 /** Only allowlisted codes cross this boundary, never raw SDK/provider messages. */
@@ -59,20 +60,9 @@ function safeError(error: unknown): AIClientError {
   }
   if (error && typeof error === 'object') {
     const code = 'code' in error ? error.code : undefined;
-    const details = 'details' in error ? error.details : undefined;
-    const detailCode = details && typeof details === 'object' && 'code' in details ? details.code : undefined;
-    if (typeof detailCode === 'string' && Object.prototype.hasOwnProperty.call(BACKEND_CODES, detailCode)) return new AIClientError(detailCode as AIErrorCode);
-    switch (code) {
-      case 'functions/unauthenticated': return new AIClientError('AI_AUTH_REQUIRED');
-      case 'functions/permission-denied': return new AIClientError('AI_CONSENT_REQUIRED');
-      case 'functions/resource-exhausted': return new AIClientError('QUOTA_EXCEEDED');
-      case 'functions/invalid-argument': return new AIClientError('AI_INPUT_INVALID');
-      case 'functions/unavailable':
-      case 'functions/deadline-exceeded': return new AIClientError('AI_NETWORK');
-      case 'functions/failed-precondition': return new AIClientError('AI_UNAVAILABLE');
-      case 'functions/aborted': return new AIClientError('REQUEST_PENDING');
-      case 'functions/already-exists': return new AIClientError('REQUEST_ID_CONFLICT');
-    }
+    if (code === 'auth/network-request-failed') return new AIClientError('AI_NETWORK');
+    if (code === 'auth/user-token-expired' || code === 'auth/invalid-user-token' ||
+        code === 'auth/user-disabled') return new AIClientError('AI_AUTH_REQUIRED');
   }
   return new AIClientError('AI_FAILED');
 }
@@ -93,11 +83,12 @@ export async function assertAISession(session: AISession): Promise<void> {
 }
 
 export async function parseCloudAlert(alert: QueuedAlert): Promise<{ transaction: ParsedTransaction | null; session: AISession }> {
-  if (!isAIConfigured()) throw new AIClientError('AI_CONFIGURATION');
+  const endpoint = getAIEndpoint();
+  if (!isAIConfigured() || !endpoint) throw new AIClientError('AI_CONFIGURATION');
   try {
     const session = await getFirebaseAISession();
     // Auth restoration, consent, and the sticky device owner must settle before
-    // touching a private image or issuing a callable request.
+    // touching a private image or issuing an HTTP request.
     await assertAISession(session);
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(alert.id) || typeof alert.text !== 'string' || alert.text.length > 6000 ||
         (!alert.text.trim() && !alert.imageUri) || !Number.isSafeInteger(alert.receivedAt) ||
@@ -114,12 +105,42 @@ export async function parseCloudAlert(alert: QueuedAlert): Promise<{ transaction
       receivedAt: alert.receivedAt,
       image,
     };
-    const callable = httpsCallable<ParseTransactionRequest, ParseTransactionResponse>(
-      getFirebaseAIServices().functions, 'parseTransaction', { timeout: 35_000 },
-    );
-    const response = await callable(request);
+    const user = getFirebaseAIAuth().currentUser;
+    if (!user || user.uid !== session.uid) throw new AIClientError('AI_SESSION_CHANGED');
     await assertAISession(session);
-    const data: unknown = response.data;
+    const token = await user.getIdToken();
+    await assertAISession(session);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 35_000);
+    let data: unknown;
+    try {
+      let response: Response;
+      try {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+          redirect: 'error',
+          credentials: 'omit',
+          cache: 'no-store',
+        });
+      } catch { throw new AIClientError('AI_NETWORK'); }
+      await assertAISession(session);
+      if (response.redirected) throw new AIClientError('AI_NETWORK');
+      try { data = await response.json(); } catch {
+        throw new AIClientError(controller.signal.aborted ? 'AI_NETWORK' :
+          response.ok ? 'AI_RESPONSE_INVALID' : 'AI_FAILED');
+      }
+      await assertAISession(session);
+      if (!response.ok) {
+        const error = data && typeof data === 'object' && 'error' in data ? data.error : undefined;
+        const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+        if (typeof code === 'string' && Object.prototype.hasOwnProperty.call(BACKEND_STATUS, code) &&
+            BACKEND_STATUS[code as AIErrorCode] === response.status) throw new AIClientError(code as AIErrorCode);
+        throw new AIClientError('AI_FAILED');
+      }
+    } finally { clearTimeout(timeout); }
     if (!data || typeof data !== 'object' || Array.isArray(data) || Object.keys(data).length !== 1 ||
         !('transaction' in data)) throw new AIClientError('AI_RESPONSE_INVALID');
     let transaction: ParsedTransaction | null;
