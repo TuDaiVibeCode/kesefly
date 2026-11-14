@@ -37,7 +37,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd = process.c
     if (env.NODE_ENV === 'production' || !projectId.startsWith('demo-')) throw new Error('Emulator authentication requires a demo project outside production.');
     emulatorHost = loopbackEmulatorHost(env.FIREBASE_AUTH_EMULATOR_HOST ?? '');
   }
-  const corsOrigins = (env.CORS_ORIGINS ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  const defaultCors = 'http://localhost:8081,http://localhost:8082,http://localhost:5000,http://localhost:3000';
+  const corsOrigins = (env.CORS_ORIGINS !== undefined ? env.CORS_ORIGINS : defaultCors).split(',').map((value) => value.trim()).filter(Boolean);
   for (const origin of corsOrigins) {
     const url = new URL(origin);
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin || url.username || url.password) throw new Error('CORS_ORIGINS must contain exact HTTP(S) origins.');

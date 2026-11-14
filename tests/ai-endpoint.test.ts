@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveAIEndpoint } from '../src/core/ai/endpoint';
+import { getAIEndpoint, resolveAIEndpoint } from '../src/core/ai/endpoint';
 
 test('AI requires an explicit HTTPS origin and fixes the API route', () => {
   assert.equal(resolveAIEndpoint(undefined), null);
@@ -57,5 +57,15 @@ test('malformed and non-HTTP URLs fail closed rather than falling back to anothe
     'javascript:alert(1)', 'https://', 'https://ai.example.com:99999', ' https://ai.example.com',
     'https://ai.example.com\n', 'https://ai.example.com\\path']) {
     assert.equal(resolveAIEndpoint(origin, true), null, origin);
+  }
+});
+
+test('getAIEndpoint falls back to default local backend origin if env is unset', () => {
+  const original = process.env.EXPO_PUBLIC_AI_API_URL;
+  delete process.env.EXPO_PUBLIC_AI_API_URL;
+  try {
+    assert.equal(getAIEndpoint(), 'http://localhost:3001/api/parse-transaction');
+  } finally {
+    if (original !== undefined) process.env.EXPO_PUBLIC_AI_API_URL = original;
   }
 });
